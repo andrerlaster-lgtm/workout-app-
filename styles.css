@@ -117,6 +117,13 @@ h1 em { color:var(--lime); font-style:normal; }.intro-copy { max-width:420px; ma
 .set-field { display:grid; gap:6px; color:var(--muted); font-size:11px; font-weight:700; }
 .set-input { width:100%; min-height:48px; padding:0 12px; border:1px solid #3b473d; border-radius:10px; outline:none; background:#111612; color:var(--text); font:inherit; font-size:17px; font-variant-numeric:tabular-nums; }
 .set-input:focus { border-color:var(--lime); box-shadow:0 0 0 3px rgba(198,243,106,.12); }
+.timer-display { margin:2px 0 12px; color:var(--lime); font-size:clamp(36px,9vw,52px); font-weight:850; font-variant-numeric:tabular-nums; letter-spacing:-.055em; line-height:1; }
+.timer-controls { display:flex; gap:8px; margin-bottom:12px; }
+.timer-button { flex:1; min-height:44px; padding:0 10px; border:1px solid #485449; border-radius:10px; background:#222c24; color:var(--text); font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
+.timer-primary { border-color:rgba(198,243,106,.48); background:rgba(198,243,106,.11); color:var(--lime); }
+.timer-button:disabled { opacity:.38; cursor:not-allowed; }
+.duration-field { max-width:220px; }
+.timer-hint { margin:7px 0 0; color:var(--subtle); font-size:11px; }
 .field-error { margin:8px 0 0; color:#ffb18a; font-size:12px; }
 .save-set-button { width:100%; min-height:46px; margin-top:11px; border:1px solid #414d43; border-radius:10px; background:#252e27; color:var(--lime); font-size:12px; font-weight:800; cursor:pointer; transition:background .16s ease,border-color .16s ease; }
 .save-set-button:hover { border-color:var(--lime); background:#2b362c; }

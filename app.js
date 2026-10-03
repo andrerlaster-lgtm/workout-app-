@@ -32,7 +32,9 @@ const exercisesByMuscle = {
   hamstrings: ["Romanian deadlift", "Seated leg curl", "Lying leg curl", "Standing leg curl", "Exercise ball leg curl", "Glute-ham raise", "Stiff-leg dumbbell deadlift", "Single-leg kettlebell deadlift"]
 };
 
-// Exercise lists only: completed sets and weights are always entered by the user.
+const timedExercises = new Set(["Plank", "Farmer carry", "Plate pinch", "Pallof press", "Superman"]);
+
+// Exercise lists only: completed sets are always entered by the user.
 const workoutPresets = {
   shoulders: ["Overhead press", "Dumbbell lateral raise", "Reverse fly"],
   chest: ["Barbell bench press", "Incline dumbbell press", "Push-up"],
@@ -107,7 +109,14 @@ function loadState() {
       calendarMonth: /^\d{4}-\d{2}$/.test(saved.calendarMonth) && isDateKey(saved.calendarMonth + "-01") ? saved.calendarMonth : localDateKey(new Date()).slice(0, 7),
       manualDays: Array.isArray(saved.manualDays) ? [...new Set(saved.manualDays.filter(isDateKey))] : [],
       dayNotes: saved.dayNotes && typeof saved.dayNotes === "object" && !Array.isArray(saved.dayNotes) ? saved.dayNotes : {},
-      session: saved.session && Array.isArray(saved.session.exercises) ? saved.session : null,
+      session: saved.session && Array.isArray(saved.session.exercises) ? {
+        ...saved.session,
+        exercises: saved.session.exercises.map((item) => {
+          if (!timedExercises.has(item.exercise)) return item;
+          const { pendingWeight, pendingReps, ...rest } = item;
+          return rest;
+        })
+      } : null,
       history: Array.isArray(saved.history) ? saved.history : []
     };
   } catch {
@@ -399,6 +408,7 @@ function renderExercises() {
     button.innerHTML = '<span class="exercise-number">' + String(index + 1).padStart(2, "0") +
       '</span><span class="exercise-name"></span><span class="exercise-type">Exercise</span><span class="exercise-check" aria-hidden="true">✓</span>';
     button.querySelector(".exercise-name").textContent = name;
+    button.querySelector(".exercise-type").textContent = timedExercises.has(name) ? "Timed" : "Exercise";
     button.addEventListener("click", () => {
       state.exercise = name;
       renderExercises();
@@ -436,7 +446,7 @@ function renderDraft() {
     const title = document.createElement("strong");
     const detail = document.createElement("small");
     title.textContent = item.exercise;
-    detail.textContent = item.muscle + (item.sets.length ? " · " + item.sets.length + " sets logged" : "");
+    detail.textContent = item.muscle + (timedExercises.has(item.exercise) ? " · Timer" : "") + (item.sets.length ? " · " + item.sets.length + " sets logged" : "");
     description.append(title, detail);
     row.append(description);
 
@@ -513,11 +523,33 @@ function createField(labelText, name, type, value, step, inputMode) {
   return { label, input };
 }
 
+function formatDuration(seconds) {
+  const whole = Math.max(0, Math.floor(Number(seconds) || 0));
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const remaining = String(whole % 60).padStart(2, "0");
+  return hours ? hours + ":" + String(minutes).padStart(2, "0") + ":" + remaining : String(minutes).padStart(2, "0") + ":" + remaining;
+}
+
+function currentDurationSeconds(item) {
+  const saved = Math.max(0, Number(item.pendingSeconds) || 0);
+  const started = Number(item.timerStartedAt);
+  if (!Number.isFinite(started) || started <= 0) return saved;
+  return saved + Math.max(0, Math.floor((Date.now() - started) / 1000));
+}
+
+function formatLoggedSet(set) {
+  return Number.isInteger(set.durationSeconds) && set.durationSeconds > 0
+    ? formatDuration(set.durationSeconds) + " timed"
+    : set.weight + " " + set.unit + " × " + set.reps + " reps";
+}
+
 function updateFinishState() {
   const session = state.session;
   const hasSets = Boolean(session && session.exercises.some((item) => item.sets.length > 0));
   const hasPending = Boolean(session && session.exercises.some((item) =>
-    item.pendingWeight !== undefined || item.pendingReps !== undefined
+    item.pendingWeight !== undefined || item.pendingReps !== undefined ||
+    (item.pendingSeconds !== undefined && item.pendingSeconds !== "") || item.timerStartedAt
   ));
   finishButton.disabled = !hasSets || hasPending;
   const hint = document.getElementById("finish-hint");
@@ -527,13 +559,141 @@ function updateFinishState() {
     : "Log at least one set to finish.";
 }
 
+function renderTimedForm(item, card) {
+  const form = document.createElement("form");
+  form.className = "set-form timed-set-form";
+  const legend = document.createElement("p");
+  legend.className = "set-form-title";
+  legend.textContent = "LOG TIMED SET " + String(item.sets.length + 1).padStart(2, "0");
+  const display = document.createElement("div");
+  display.className = "timer-display";
+  display.dataset.timerId = item.id;
+  display.setAttribute("role", "timer");
+  display.setAttribute("aria-label", "Elapsed time");
+  display.textContent = formatDuration(currentDurationSeconds(item));
+  const controls = document.createElement("div");
+  controls.className = "timer-controls";
+  const start = document.createElement("button");
+  start.type = "button";
+  start.className = "timer-button timer-primary";
+  const pause = document.createElement("button");
+  pause.type = "button";
+  pause.className = "timer-button";
+  pause.textContent = "Pause";
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "timer-button";
+  reset.textContent = "Reset";
+  controls.append(start, pause, reset);
+  const duration = createField("Duration (seconds)", "duration", "number", item.pendingSeconds ?? "", "1", "numeric");
+  duration.input.min = "1";
+  duration.input.max = "86400";
+  duration.label.classList.add("duration-field");
+  const hint = document.createElement("p");
+  hint.className = "timer-hint";
+  hint.textContent = "Use the timer or enter the seconds yourself.";
+  const error = document.createElement("p");
+  error.className = "field-error";
+  error.setAttribute("role", "alert");
+  error.hidden = true;
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.className = "save-set-button";
+  submit.textContent = "Save timed set";
+  form.append(legend, display, controls, duration.label, hint, error, submit);
+  card.append(form);
+
+  function refresh() {
+    const running = Boolean(item.timerStartedAt);
+    display.textContent = formatDuration(currentDurationSeconds(item));
+    start.textContent = Number(item.pendingSeconds) > 0 ? "Resume timer" : "Start timer";
+    start.disabled = running;
+    pause.disabled = !running;
+    reset.disabled = !running && !item.pendingSeconds;
+    duration.input.disabled = running;
+    if (running) duration.input.value = String(currentDurationSeconds(item));
+  }
+
+  start.addEventListener("click", () => {
+    const value = duration.input.value.trim();
+    const seconds = value === "" ? 0 : Number(value);
+    if (!Number.isInteger(seconds) || seconds < 0 || seconds > 86400) {
+      error.textContent = "Enter a whole number of seconds up to 86400.";
+      error.hidden = false;
+      return;
+    }
+    item.pendingSeconds = seconds ? String(seconds) : "";
+    item.timerStartedAt = Date.now();
+    error.hidden = true;
+    saveState();
+    updateFinishState();
+    refresh();
+  });
+  pause.addEventListener("click", () => {
+    item.pendingSeconds = String(currentDurationSeconds(item));
+    delete item.timerStartedAt;
+    duration.input.value = item.pendingSeconds;
+    saveState();
+    updateFinishState();
+    refresh();
+  });
+  reset.addEventListener("click", () => {
+    delete item.timerStartedAt;
+    delete item.pendingSeconds;
+    duration.input.value = "";
+    error.hidden = true;
+    saveState();
+    updateFinishState();
+    refresh();
+  });
+  duration.input.addEventListener("input", () => {
+    item.pendingSeconds = duration.input.value;
+    display.textContent = formatDuration(Number(duration.input.value));
+    error.hidden = true;
+    saveState();
+    updateFinishState();
+    refresh();
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const seconds = item.timerStartedAt ? currentDurationSeconds(item) : Number(duration.input.value);
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > 86400) {
+      error.textContent = "Enter a whole number of seconds between 1 and 86400.";
+      error.hidden = false;
+      duration.input.focus();
+      return;
+    }
+    const setNumber = item.sets.length + 1;
+    item.sets.push({ durationSeconds: seconds, loggedAt: new Date().toISOString() });
+    delete item.timerStartedAt;
+    delete item.pendingSeconds;
+    saveState();
+    renderLog();
+    renderDraft();
+    showToast("Timed set " + String(setNumber).padStart(2, "0") + " saved.");
+  });
+  refresh();
+}
+
+window.setInterval(() => {
+  if (state.appView !== "log" || !state.session) return;
+  document.querySelectorAll("[data-timer-id]").forEach((display) => {
+    const item = state.session.exercises.find((exercise) => exercise.id === display.dataset.timerId);
+    if (!item || !item.timerStartedAt) return;
+    const seconds = currentDurationSeconds(item);
+    display.textContent = formatDuration(seconds);
+    const input = display.closest("form").querySelector('input[name="duration"]');
+    input.value = String(seconds);
+  });
+}, 500);
+
 function renderLog() {
   logSession.replaceChildren();
   const session = state.session;
-  const hasSets = session && session.exercises.some((item) => item.sets.length > 0);
+  const hasWeightedSets = session && session.exercises.some((item) => item.sets.some((set) => set.weight !== undefined));
   unitSelect.value = session ? session.weightUnit : state.weightUnit;
   workoutDateInput.value = session && isDateKey(session.workoutDate) ? session.workoutDate : state.workoutDate;
-  unitSelect.disabled = Boolean(hasSets);
+  unitSelect.disabled = Boolean(hasWeightedSets);
   updateFinishState();
 
   if (!session || session.exercises.length === 0) {
@@ -564,6 +724,7 @@ function renderLog() {
     const subtitle = document.createElement("p");
     subtitle.className = "log-muscle";
     subtitle.textContent = item.muscle;
+    if (timedExercises.has(item.exercise)) subtitle.textContent += " · Timed set";
     if (item.targetReps) subtitle.textContent += " · Target " + item.targetReps + " reps × " + item.targetSets + " rounds";
     headingGroup.append(kicker, title, subtitle);
     header.append(headingGroup, guideButton(item.exercise));
@@ -592,7 +753,7 @@ function renderLog() {
         const setLabel = document.createElement("span");
         setLabel.textContent = "SET " + String(index + 1).padStart(2, "0");
         const value = document.createElement("strong");
-        value.textContent = set.weight + " " + set.unit + " × " + set.reps + " reps";
+        value.textContent = formatLoggedSet(set);
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "remove-set";
@@ -611,6 +772,12 @@ function renderLog() {
         list.append(row);
       });
       card.append(list);
+    }
+
+    if (timedExercises.has(item.exercise)) {
+      renderTimedForm(item, card);
+      logSession.append(card);
+      return;
     }
 
     const form = document.createElement("form");
@@ -804,7 +971,7 @@ function renderHistory() {
       sets.className = "history-set-list";
       item.sets.forEach((set, index) => {
         const row = document.createElement("li");
-        row.textContent = "Set " + (index + 1) + " · " + set.weight + " " + set.unit + " × " + set.reps + " reps";
+        row.textContent = "Set " + (index + 1) + " · " + formatLoggedSet(set);
         sets.append(row);
       });
       exercise.append(exerciseHeading, sets);
