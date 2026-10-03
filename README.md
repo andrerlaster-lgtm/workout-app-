@@ -13,7 +13,7 @@ A phone-first workout app for finding exercises by muscle group and recording gy
 - Switch between front and back views of the interactive muscle map.
 - Select a muscle group on the map or from the accessible button list.
 - Browse eight exercises for each of the 13 muscle groups and add them to a workout.
-- Record each set's weight and reps, with pounds or kilograms. Planks, farmer carries, plate pinches, Pallof presses, and Superman use a start/pause/reset timer or manually entered seconds; their sets save as durations.
+- Record weighted sets in pounds or kilograms, bodyweight sets by reps only, and holds by duration. Push-ups, pull-ups, chin-ups, dips, and other bodyweight moves have no weight field; each saved set shows its rep count. Planks, farmer carries, plate pinches, Pallof presses, and Superman use a start/pause/reset timer or manually entered seconds.
 - Finish a workout and review completed sessions in History.
 - Use the training calendar to see workout days, choose the day for a workout, mark gym visits without a session, and save short day notes.
 - Save the active workout and workout history in this browser's local storage.
