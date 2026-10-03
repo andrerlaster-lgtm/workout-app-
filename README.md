@@ -14,6 +14,7 @@ A phone-first workout app for finding exercises by muscle group and recording gy
 - Select a muscle group on the map or from the accessible button list.
 - Browse eight exercises for each of the 13 muscle groups and tap one to add it to your workout (tap again to remove it). A bar at the bottom shows how many exercises are queued and opens the log.
 - Record weighted sets in pounds or kilograms, bodyweight sets by reps only, and holds by duration. Push-ups, pull-ups, chin-ups, dips, and other bodyweight moves have no weight field; each saved set shows its rep count. Planks, farmer carries, plate pinches, Pallof presses, and Superman use a start/pause/reset timer or manually entered seconds.
+- A rest timer starts after every saved set (default 1 min 30; choose Off, 30 sec, 1, 1:30, 2, or 3 min in the Log toolbar). Adjust it by ±15 seconds or skip it; it beeps and vibrates where the browser allows when rest is over, and keeps counting through a page reload.
 - Finish a workout and review completed sessions in History.
 - Use the training calendar to see workout days, choose the day for a workout, mark gym visits without a session, and save short day notes.
 - See training days, progress toward the next milestone, a configurable weekly goal, the largest same-unit lift gain and bodyweight rep gain against each exercise's first logged workout, and recent average sets per workout. The gym lighting and body-map glow change after 5, 15, and 30 training days as visual milestones.

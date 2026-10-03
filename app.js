@@ -82,6 +82,8 @@ const musclesByView = {
   back: ["shoulders", "traps", "triceps", "lats", "lower-back", "glutes", "hamstrings", "calves"]
 };
 
+const REST_OPTIONS = [0, 30, 60, 90, 120, 180];
+
 function emptyState() {
   return {
     appView: "build",
@@ -91,6 +93,9 @@ function emptyState() {
     weightUnit: "lb",
     weeklyGoal: 3,
     specialRounds: 3,
+    restSeconds: 90,
+    restEndsAt: null,
+    restTotal: 0,
     workoutDate: localDateKey(new Date()),
     selectedDay: localDateKey(new Date()),
     calendarMonth: localDateKey(new Date()).slice(0, 7),
@@ -111,6 +116,9 @@ function loadState() {
       appView: ["build", "log", "special", "history"].includes(saved.appView) ? saved.appView : "build",
       specialRounds: [3, 5, 7, 10].includes(Number(saved.specialRounds)) ? Number(saved.specialRounds) : 3,
       bodyView: saved.bodyView === "back" ? "back" : "front",
+      restSeconds: REST_OPTIONS.includes(Number(saved.restSeconds)) ? Number(saved.restSeconds) : 90,
+      restEndsAt: Number.isFinite(Number(saved.restEndsAt)) && Number(saved.restEndsAt) > Date.now() ? Number(saved.restEndsAt) : null,
+      restTotal: Number.isFinite(Number(saved.restTotal)) && Number(saved.restTotal) > 0 ? Number(saved.restTotal) : 0,
       weightUnit: saved.weightUnit === "kg" ? "kg" : "lb",
       weeklyGoal: Number.isInteger(Number(saved.weeklyGoal)) && Number(saved.weeklyGoal) >= 1 && Number(saved.weeklyGoal) <= 7 ? Number(saved.weeklyGoal) : 3,
       workoutDate: isDateKey(saved.workoutDate) ? saved.workoutDate : localDateKey(new Date()),
@@ -614,6 +622,7 @@ function renderRepsForm(item, card) {
     renderLog();
     renderDraft();
     showToast("Set " + String(setNumber).padStart(2, "0") + " saved.");
+    startRest();
   });
   card.append(form);
 }
@@ -730,9 +739,89 @@ function renderTimedForm(item, card) {
     renderLog();
     renderDraft();
     showToast("Timed set " + String(setNumber).padStart(2, "0") + " saved.");
+    startRest();
   });
   refresh();
 }
+
+let restAudio;
+
+function startRest() {
+  if (!state.restSeconds) return;
+  state.restTotal = state.restSeconds;
+  state.restEndsAt = Date.now() + state.restSeconds * 1000;
+  try {
+    // Created during the tap that saved the set, so the end-of-rest beep is allowed to play.
+    restAudio = restAudio || new (window.AudioContext || window.webkitAudioContext)();
+    if (restAudio.state === "suspended") restAudio.resume();
+  } catch {
+    restAudio = null;
+  }
+  saveState();
+  renderRest();
+}
+
+function stopRest() {
+  state.restEndsAt = null;
+  state.restTotal = 0;
+  saveState();
+  renderRest();
+}
+
+function adjustRest(seconds) {
+  if (!state.restEndsAt) return;
+  const remaining = Math.ceil((state.restEndsAt - Date.now()) / 1000) + seconds;
+  if (remaining <= 0) {
+    stopRest();
+    return;
+  }
+  state.restEndsAt = Date.now() + remaining * 1000;
+  state.restTotal = Math.max(state.restTotal, remaining);
+  saveState();
+  renderRest();
+}
+
+function playRestBeep() {
+  if (navigator.vibrate) navigator.vibrate([180, 90, 180]);
+  if (!restAudio) return;
+  try {
+    [0, 0.22].forEach((offset) => {
+      const tone = restAudio.createOscillator();
+      const gain = restAudio.createGain();
+      const start = restAudio.currentTime + offset;
+      tone.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+      tone.connect(gain).connect(restAudio.destination);
+      tone.start(start);
+      tone.stop(start + 0.2);
+    });
+  } catch {
+    // Sound is a bonus; the toast still tells the user rest is over.
+  }
+}
+
+function renderRest() {
+  const bar = document.getElementById("rest-timer");
+  if (!state.restEndsAt) {
+    bar.hidden = true;
+    return;
+  }
+  const remaining = Math.max(0, Math.ceil((state.restEndsAt - Date.now()) / 1000));
+  if (remaining === 0) {
+    stopRest();
+    playRestBeep();
+    showToast("Rest over — time for your next set.");
+    return;
+  }
+  bar.hidden = false;
+  document.getElementById("rest-time").textContent = formatDuration(remaining);
+  const total = state.restTotal || state.restSeconds || remaining;
+  document.getElementById("rest-progress-fill").style.transform = "scaleX(" + Math.min(1, remaining / total) + ")";
+}
+
+window.setInterval(renderRest, 250);
 
 window.setInterval(() => {
   if (state.appView !== "log" || !state.session) return;
@@ -911,6 +1000,7 @@ function renderLog() {
       renderLog();
       renderDraft();
       showToast("Set " + String(setNumber).padStart(2, "0") + " saved.");
+    startRest();
     });
     card.append(form);
     logSession.append(card);
@@ -1184,6 +1274,7 @@ function finishWorkout() {
   state.calendarMonth = completed.workoutDate.slice(0, 7);
   state.workoutDate = localDateKey(new Date());
   state.session = null;
+  state.restEndsAt = null;
   state.appView = "history";
   saveState();
   renderApp();
@@ -1295,6 +1386,19 @@ document.getElementById("day-note").addEventListener("input", (event) => {
   renderCalendar();
 });
 
+const restSelect = document.getElementById("rest-length");
+restSelect.value = String(state.restSeconds);
+restSelect.addEventListener("change", () => {
+  state.restSeconds = REST_OPTIONS.includes(Number(restSelect.value)) ? Number(restSelect.value) : 90;
+  if (!state.restSeconds) state.restEndsAt = null;
+  saveState();
+  renderRest();
+});
+document.querySelectorAll("[data-rest-adjust]").forEach((button) => {
+  button.addEventListener("click", () => adjustRest(Number(button.dataset.restAdjust)));
+});
+document.getElementById("rest-skip").addEventListener("click", stopRest);
+
 unitSelect.addEventListener("change", () => {
   state.weightUnit = unitSelect.value === "kg" ? "kg" : "lb";
   if (state.session) {
@@ -1311,3 +1415,4 @@ document.getElementById("exercise-guide").addEventListener("click", (event) => {
 renderSpecialGuideButtons();
 document.getElementById("special-level").value = String(state.specialRounds);
 renderApp();
+renderRest();
