@@ -16,6 +16,7 @@ A phone-first workout app for finding exercises by muscle group and recording gy
 - Record weighted sets in pounds or kilograms, bodyweight sets by reps only, and holds by duration. Push-ups, pull-ups, chin-ups, dips, and other bodyweight moves have no weight field; each saved set shows its rep count. Planks, farmer carries, plate pinches, Pallof presses, and Superman use a start/pause/reset timer or manually entered seconds.
 - Finish a workout and review completed sessions in History.
 - Use the training calendar to see workout days, choose the day for a workout, mark gym visits without a session, and save short day notes.
+- See training days, progress toward the next milestone, a configurable weekly goal, the largest same-unit lift gain and bodyweight rep gain against each exercise's first logged workout, and recent average sets per workout. The gym lighting and body-map glow change after 5, 15, and 30 training days as visual milestones.
 - Save the active workout and workout history in this browser's local storage.
 
 Workout data stays on the device and browser where it was entered. It does not sync between devices or browsers.
@@ -30,4 +31,4 @@ This dependency-free static app can be served with `python3 -m http.server 4173`
 
 ## Deploy preview
 
-Run `npm run deploy` to create a Vercel Preview deployment. The script explicitly targets Preview; do not use a production deployment for this prototype.
+Run `npm run deploy` to create a Vercel Preview deployment. The script explicitly targets Preview; do not use a production deployment for this prototype. After each deployment, point `workout-log-preview-andrerlaster-lgtms-projects.vercel.app` at its new Preview URL with `vercel alias set <preview-url> workout-log-preview-andrerlaster-lgtms-projects.vercel.app`. Keep using that stable alias on your phone so browser-saved workout history stays on the same origin.

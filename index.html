@@ -42,6 +42,7 @@
           </div>
           <div class="map-stage">
             <div class="map-side-label map-side-label-left" aria-hidden="true"><span id="map-side-name">FRONT VIEW</span></div>
+            <div id="figure-stage" class="figure-stage" aria-hidden="true">STARTING LINE</div>
             <svg id="body-map" class="body-map" viewBox="0 0 320 590" role="group" aria-label="Interactive muscle map">
 <defs><linearGradient id="skin" x1="0" x2="1"><stop stop-color="#343f3b"/><stop offset=".5" stop-color="#59645b"/><stop offset="1" stop-color="#343f3b"/></linearGradient><linearGradient id="muscle-fill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c7997d"/><stop offset="1" stop-color="#7e5747"/></linearGradient><linearGradient id="muscle-active" x2="0" y2="1"><stop stop-color="#ffc18d"/><stop offset="1" stop-color="#f27b49"/></linearGradient></defs>
 <ellipse class="body-shadow" cx="160" cy="567" rx="55" ry="7"/>
@@ -149,6 +150,20 @@
           <h1 id="history-heading" tabindex="-1">Training calendar.</h1>
           <p class="intro-copy">See workout days and mark gym visits. Your calendar saves in this browser on this device.</p>
         </div>
+        <section class="progress-panel" aria-labelledby="progress-heading">
+          <div class="progress-heading"><div><p class="section-kicker">YOUR MOMENTUM</p><h2 id="progress-heading">Training progress</h2></div><span id="progress-stage" class="progress-stage"></span></div>
+          <div class="progress-count"><strong id="progress-days">0</strong><span>training days logged</span></div>
+          <div id="progress-track" class="progress-track" role="progressbar" aria-label="Training days toward the next milestone" aria-valuemin="0" aria-valuenow="0" aria-valuemax="5"><span id="progress-fill"></span></div>
+          <p id="progress-next" class="progress-next"></p>
+          <label class="weekly-goal-control" for="weekly-goal">Weekly goal <select id="weekly-goal"><option value="1">1 day</option><option value="2">2 days</option><option value="3">3 days</option><option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option><option value="7">7 days</option></select></label>
+          <div class="progress-stats">
+            <div class="progress-stat"><span>THIS WEEK</span><strong id="progress-week">0 / 3 days</strong><small id="progress-week-detail"></small></div>
+            <div class="progress-stat"><span>BEST LIFT GAIN</span><strong id="progress-lift">—</strong><small id="progress-lift-detail"></small></div>
+            <div class="progress-stat"><span>BEST REP GAIN</span><strong id="progress-reps">—</strong><small id="progress-reps-detail"></small></div>
+            <div class="progress-stat"><span>AVG SETS / WORKOUT</span><strong id="progress-sets">—</strong><small id="progress-sets-detail"></small></div>
+          </div>
+          <p id="progress-message" class="progress-message"></p>
+        </section>
         <div class="calendar-panel" aria-label="Training calendar">
           <div class="calendar-toolbar">
             <button type="button" id="calendar-prev" class="calendar-arrow" aria-label="Previous month">‹</button>

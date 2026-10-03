@@ -280,13 +280,42 @@ h1 em { color:var(--lime); font-style:normal; }.intro-copy { max-width:420px; ma
 @media(max-width:390px) { .calendar-panel,.day-panel { padding:12px; } .calendar-weekdays,.calendar-grid { gap:3px; } .calendar-day { min-height:44px; } .calendar-toolbar h2 { font-size:18px; } }
 
 /* Gym setting: decorative layers never intercept muscle selection. */
-body { background:var(--bg); isolation:isolate; }
-body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(rgba(10,15,12,.9),rgba(10,15,12,.95)),url('/assets/gym-background.jpg') center 44%/cover no-repeat; }
-.map-stage { isolation:isolate; border:1px solid #434b3d; background:linear-gradient(180deg,rgba(9,13,10,.18),rgba(9,13,10,.08) 65%,rgba(9,13,10,.3)),url('/assets/gym-background.jpg') center center/cover no-repeat; box-shadow:inset 0 0 45px rgba(0,0,0,.35); }
-.map-stage::before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:radial-gradient(ellipse at 50% 48%,rgba(10,17,12,.42) 0,rgba(10,17,12,.1) 42%,transparent 70%); }
-.body-map { position:relative; z-index:1; filter:drop-shadow(0 5px 4px rgba(0,0,0,.8)) drop-shadow(0 0 12px rgba(198,243,106,.12)); }
+body { --gym-top:rgba(10,15,12,.9); --gym-bottom:rgba(10,15,12,.95); --stage-top:rgba(9,13,10,.18); --stage-bottom:rgba(9,13,10,.3); --figure-brightness:1; --figure-glow:rgba(198,243,106,.12); background:var(--bg); isolation:isolate; }
+body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(var(--gym-top),var(--gym-bottom)),url('/assets/gym-background.jpg') center 44%/cover no-repeat; transition:background .5s ease; }
+.map-stage { isolation:isolate; border:1px solid #434b3d; background:linear-gradient(180deg,var(--stage-top),rgba(9,13,10,.08) 65%,var(--stage-bottom)),url('/assets/gym-background.jpg') center center/cover no-repeat; box-shadow:inset 0 0 45px rgba(0,0,0,.35); transition:border-color .5s ease,box-shadow .5s ease; }
+.map-stage::before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:radial-gradient(ellipse at 50% 48%,var(--figure-glow) 0,rgba(10,17,12,.1) 42%,transparent 70%); }
+.body-map { position:relative; z-index:1; filter:drop-shadow(0 5px 4px rgba(0,0,0,.8)) drop-shadow(0 0 12px var(--figure-glow)) brightness(var(--figure-brightness)); transition:filter .5s ease; }
 .body-base path { stroke:#9ea994; stroke-width:1.2; }
 .body-shadow { opacity:.85; }
 .map-side-label { z-index:2; top:auto; bottom:14px; color:#e4e8dd; background:rgba(13,20,15,.85); border:1px solid rgba(221,232,203,.22); border-radius:6px; padding:6px 8px; font-size:8px; line-height:1.5; max-width:none; }
 .map-side-label-left { left:10px; } .map-side-label-right { right:10px; }
 @media(max-width:390px) { .map-side-label { font-size:7px; padding:5px 6px; max-width:none; } }
+
+/* Training milestones brighten the gym scene and body map. */
+body[data-progress-tier="1"] { --gym-top:rgba(11,18,13,.84); --gym-bottom:rgba(10,16,12,.91); --stage-top:rgba(15,24,15,.08); --stage-bottom:rgba(8,16,10,.24); --figure-brightness:1.08; --figure-glow:rgba(198,243,106,.2); }
+body[data-progress-tier="2"] { --gym-top:rgba(12,21,14,.75); --gym-bottom:rgba(10,18,13,.85); --stage-top:rgba(24,36,19,.04); --stage-bottom:rgba(9,19,11,.2); --figure-brightness:1.16; --figure-glow:rgba(198,243,106,.3); }
+body[data-progress-tier="3"] { --gym-top:rgba(13,24,16,.65); --gym-bottom:rgba(10,20,13,.79); --stage-top:rgba(35,50,24,.02); --stage-bottom:rgba(10,22,13,.16); --figure-brightness:1.24; --figure-glow:rgba(198,243,106,.42); }
+body[data-progress-tier="2"] .map-stage,body[data-progress-tier="3"] .map-stage { border-color:rgba(198,243,106,.5); box-shadow:inset 0 0 36px rgba(0,0,0,.19),0 0 30px rgba(198,243,106,.06); }
+.figure-stage { position:absolute; top:14px; right:14px; z-index:2; padding:6px 9px; border:1px solid rgba(198,243,106,.3); border-radius:999px; background:rgba(9,17,11,.78); color:var(--lime); font-size:9px; font-weight:850; letter-spacing:.12em; pointer-events:none; }
+
+/* Progress dashboard */
+.progress-panel { max-width:760px; margin-bottom:12px; padding:22px; border:1px solid rgba(198,243,106,.25); border-radius:16px; background:linear-gradient(140deg,rgba(198,243,106,.09),transparent 48%),var(--panel); }
+.progress-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.progress-heading h2 { margin:0; font-size:21px; letter-spacing:-.03em; }
+.progress-stage { padding:6px 9px; border:1px solid rgba(198,243,106,.27); border-radius:999px; color:var(--lime); font-size:10px; font-weight:800; white-space:nowrap; }
+.progress-count { display:flex; align-items:baseline; gap:10px; margin:21px 0 9px; }
+.progress-count strong { color:var(--lime); font-size:clamp(40px,9vw,62px); line-height:.9; font-variant-numeric:tabular-nums; letter-spacing:-.06em; }
+.progress-count span { color:var(--muted); font-size:13px; }
+.progress-track { height:13px; overflow:hidden; border:1px solid #435144; border-radius:999px; background:#111813; }
+.progress-track span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#86b356,var(--lime)); transition:width .45s ease; }
+.progress-next { margin:8px 0 19px; color:var(--muted); font-size:11px; }
+.weekly-goal-control { display:flex; align-items:center; gap:9px; margin-bottom:12px; color:var(--muted); font-size:11px; font-weight:750; }
+.weekly-goal-control select { min-height:36px; padding:0 28px 0 9px; border:1px solid var(--line); border-radius:8px; background:#111813; color:var(--text); font:inherit; }
+.progress-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.progress-stat { min-width:0; min-height:100px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#141a16; }
+.progress-stat span { display:block; color:var(--subtle); font-size:9px; font-weight:850; letter-spacing:.11em; }
+.progress-stat strong { display:block; margin-top:8px; color:var(--text); font-size:21px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1; }
+.progress-stat small { display:block; margin-top:5px; color:var(--muted); font-size:10px; line-height:1.35; }
+.progress-message { margin:15px 0 0; color:var(--lime); font-size:12px; font-weight:700; }
+@media(max-width:600px) { .progress-panel { padding:16px; } }
+@media(max-width:390px) { .progress-stage { font-size:9px; } .progress-count span { font-size:11px; } }

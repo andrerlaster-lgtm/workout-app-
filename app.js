@@ -89,6 +89,7 @@ function emptyState() {
     muscle: "chest",
     exercise: "",
     weightUnit: "lb",
+    weeklyGoal: 3,
     specialRounds: 3,
     workoutDate: localDateKey(new Date()),
     selectedDay: localDateKey(new Date()),
@@ -111,6 +112,7 @@ function loadState() {
       specialRounds: [3, 5, 7, 10].includes(Number(saved.specialRounds)) ? Number(saved.specialRounds) : 3,
       bodyView: saved.bodyView === "back" ? "back" : "front",
       weightUnit: saved.weightUnit === "kg" ? "kg" : "lb",
+      weeklyGoal: Number.isInteger(Number(saved.weeklyGoal)) && Number(saved.weeklyGoal) >= 1 && Number(saved.weeklyGoal) <= 7 ? Number(saved.weeklyGoal) : 3,
       workoutDate: isDateKey(saved.workoutDate) ? saved.workoutDate : localDateKey(new Date()),
       selectedDay: isDateKey(saved.selectedDay) ? saved.selectedDay : localDateKey(new Date()),
       calendarMonth: /^\d{4}-\d{2}$/.test(saved.calendarMonth) && isDateKey(saved.calendarMonth + "-01") ? saved.calendarMonth : localDateKey(new Date()).slice(0, 7),
@@ -936,6 +938,123 @@ function workoutsForDay(day) {
   return state.history.filter((session) => workoutDay(session) === day);
 }
 
+function trainingDays() {
+  const today = localDateKey(new Date());
+  const days = new Set(state.manualDays.filter((day) => isDateKey(day) && day <= today));
+  state.history.forEach((session) => {
+    const day = workoutDay(session);
+    if (isDateKey(day) && day <= today) days.add(day);
+  });
+  return [...days].sort();
+}
+
+function bestLiftGain() {
+  const firstLifts = new Map();
+  let best = null;
+  state.history.forEach((session) => {
+    if (!Array.isArray(session.exercises)) return;
+    session.exercises.forEach((item) => {
+      const sessionBest = new Map();
+      (item.sets || []).forEach((set) => {
+        const weight = Number(set.weight);
+        if (!Number.isFinite(weight) || weight <= 0 || !["lb", "kg"].includes(set.unit)) return;
+        sessionBest.set(set.unit, Math.max(sessionBest.get(set.unit) || 0, weight));
+      });
+      sessionBest.forEach((weight, unit) => {
+        const key = item.exercise + "\u0000" + unit;
+        if (!firstLifts.has(key)) {
+          firstLifts.set(key, weight);
+          return;
+        }
+        const gain = weight - firstLifts.get(key);
+        if (gain > 0 && (!best || gain > best.gain)) best = { exercise: item.exercise, unit, gain };
+      });
+    });
+  });
+  return best;
+}
+
+function bestRepGain() {
+  const firstReps = new Map();
+  let best = null;
+  state.history.forEach((session) => {
+    if (!Array.isArray(session.exercises)) return;
+    session.exercises.forEach((item) => {
+      if (!repsOnlyExercises.has(item.exercise)) return;
+      const sessionBest = (item.sets || []).reduce((highest, set) => Math.max(highest, Number(set.reps) || 0), 0);
+      if (!sessionBest) return;
+      if (!firstReps.has(item.exercise)) {
+        firstReps.set(item.exercise, sessionBest);
+        return;
+      }
+      const gain = sessionBest - firstReps.get(item.exercise);
+      if (gain > 0 && (!best || gain > best.gain)) best = { exercise: item.exercise, gain };
+    });
+  });
+  return best;
+}
+
+function renderProgress() {
+  const days = trainingDays();
+  const count = days.length;
+  const tier = count >= 30 ? 3 : count >= 15 ? 2 : count >= 5 ? 1 : 0;
+  const stageNames = ["Starting line", "Getting moving", "Building rhythm", "Strong routine"];
+  document.body.dataset.progressTier = String(tier);
+  document.getElementById("figure-stage").textContent = stageNames[tier].toUpperCase();
+  document.getElementById("progress-stage").textContent = stageNames[tier];
+  document.getElementById("progress-days").textContent = String(count);
+
+  const milestones = [5, 15, 30, 50, 75, 100];
+  let previous = 0;
+  let next = milestones.find((milestone) => milestone > count);
+  if (next === undefined) next = Math.floor(count / 25) * 25 + 25;
+  for (const milestone of milestones) {
+    if (milestone >= next) break;
+    previous = milestone;
+  }
+  if (next > 100) previous = next - 25;
+  const track = document.getElementById("progress-track");
+  track.setAttribute("aria-valuemin", String(previous));
+  track.setAttribute("aria-valuenow", String(count));
+  track.setAttribute("aria-valuemax", String(next));
+  document.getElementById("progress-fill").style.width = Math.min(100, ((count - previous) / (next - previous)) * 100) + "%";
+  document.getElementById("progress-next").textContent = (next - count) + (next - count === 1 ? " day" : " days") + " until your " + next + "-day milestone.";
+
+  const today = dateFromKey(localDateKey(new Date()));
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const weekCount = days.filter((day) => day >= localDateKey(monday)).length;
+  document.getElementById("weekly-goal").value = String(state.weeklyGoal);
+  document.getElementById("progress-week").textContent = weekCount + " / " + state.weeklyGoal + " days";
+  document.getElementById("progress-week-detail").textContent = weekCount >= state.weeklyGoal ? "Weekly goal reached" : "This week's training days";
+
+  const lift = bestLiftGain();
+  document.getElementById("progress-lift").textContent = lift ? "+" + Number(lift.gain.toFixed(1)) + " " + lift.unit : "—";
+  document.getElementById("progress-lift-detail").textContent = lift ? lift.exercise + " · best lift vs first logged workout" : "Repeat a weighted exercise to see a gain";
+  const reps = bestRepGain();
+  document.getElementById("progress-reps").textContent = reps ? "+" + reps.gain + " reps" : "—";
+  document.getElementById("progress-reps-detail").textContent = reps ? reps.exercise + " · best set vs first logged workout" : "Repeat a bodyweight exercise to see a gain";
+
+  const setCounts = state.history.filter((session) => Array.isArray(session.exercises)).map((session) =>
+    session.exercises.reduce((sum, item) => sum + (item.sets || []).length, 0)
+  );
+  const recent = setCounts.slice(-3);
+  const average = recent.length ? recent.reduce((sum, value) => sum + value, 0) / recent.length : 0;
+  document.getElementById("progress-sets").textContent = recent.length ? average.toFixed(1) + " sets" : "—";
+  const previousSets = setCounts.slice(-6, -3);
+  let setsDetail = recent.length ? "Average over your latest " + recent.length + (recent.length === 1 ? " workout" : " workouts") : "Finish a workout to see your average";
+  if (previousSets.length) {
+    const priorAverage = previousSets.reduce((sum, value) => sum + value, 0) / previousSets.length;
+    const change = Number((average - priorAverage).toFixed(1));
+    setsDetail = (change > 0 ? "+" : "") + change.toFixed(1) + " vs previous " + previousSets.length + (previousSets.length === 1 ? " workout" : " workouts");
+  }
+  document.getElementById("progress-sets-detail").textContent = setsDetail;
+  document.getElementById("progress-message").textContent = count === 0
+    ? "Log a workout or mark a gym day to begin."
+    : weekCount >= state.weeklyGoal ? "Weekly goal reached. Keep building your routine at your own pace."
+    : (state.weeklyGoal - weekCount) + (state.weeklyGoal - weekCount === 1 ? " training day" : " training days") + " to reach this week's goal.";
+}
+
 function renderCalendar() {
   const [year, month] = state.calendarMonth.split("-").map(Number);
   const first = new Date(year, month - 1, 1, 12);
@@ -987,6 +1106,7 @@ function renderSelectedDay() {
 }
 
 function renderHistory() {
+  renderProgress();
   renderCalendar();
   renderSelectedDay();
   historyList.replaceChildren();
@@ -1103,6 +1223,7 @@ function addSelectedExercise() {
 }
 
 function renderApp() {
+  renderProgress();
   document.getElementById("build-intro").hidden = state.appView !== "build";
   document.getElementById("build-workspace").hidden = state.appView !== "build";
   document.getElementById("log-view").hidden = state.appView !== "log";
@@ -1185,6 +1306,11 @@ function changeCalendarMonth(amount) {
 
 document.getElementById("calendar-prev").addEventListener("click", () => changeCalendarMonth(-1));
 document.getElementById("calendar-next").addEventListener("click", () => changeCalendarMonth(1));
+document.getElementById("weekly-goal").addEventListener("change", (event) => {
+  state.weeklyGoal = Number(event.target.value);
+  saveState();
+  renderProgress();
+});
 document.getElementById("mark-gym-day").addEventListener("click", () => {
   const day = state.selectedDay;
   state.manualDays = state.manualDays.includes(day)
