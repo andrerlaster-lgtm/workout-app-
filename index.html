@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#111512">
   <meta name="description" content="Choose a muscle, browse exercises, and build today's workout.">
   <title>Repday — Workout Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/styles.css">
   <script src="/exercise-guides.js" defer></script>
   <script src="/app.js" defer></script>
@@ -26,15 +29,31 @@
       <span id="topbar-status" class="topbar-note"><span class="live-dot"></span> SAVED ON THIS DEVICE</span>
     </header>
     <main>
-      <section id="build-intro" class="intro app-view">
-        <p class="eyebrow"><span>01</span> BUILD YOUR SESSION</p>
+      <section id="build-intro" class="intro home-hero app-view">
         <h1>Where are we<br><em>training today?</em></h1>
-        <p class="intro-copy">Choose a muscle group to find exercises for your workout.</p>
+        <p id="home-date" class="home-date"></p>
+        <dl class="home-stats" aria-label="Your training at a glance">
+          <div class="home-stat"><dt>This week</dt><dd id="home-week">0/3</dd></div>
+          <div class="home-stat"><dt>Training days</dt><dd id="home-days">0</dd></div>
+          <div class="home-stat"><dt>Saved</dt><dd id="home-saved">0</dd></div>
+        </dl>
+        <div id="resume-card" class="resume-card" hidden>
+          <div class="resume-copy"><span class="resume-status"><i aria-hidden="true"></i>In progress</span><strong id="resume-title"></strong><span id="resume-detail"></span></div>
+          <div class="resume-actions">
+            <button type="button" id="resume-discard" class="icon-button danger" aria-label="Discard today's workout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+            <button type="button" id="resume-open" class="resume-open">Continue <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+        <section class="saved-section" aria-labelledby="saved-heading">
+          <div class="saved-head"><h2 id="saved-heading">Saved workouts</h2><span class="saved-hint">Start one in a tap</span></div>
+          <ul id="saved-list" class="saved-list"></ul>
+          <p id="saved-empty" class="saved-empty">Nothing saved yet. Build a workout, then tap <strong>Save for later</strong> in the Log.</p>
+        </section>
       </section>
       <section id="build-workspace" class="workspace app-view" aria-label="Workout builder">
         <div class="panel map-panel">
           <div class="panel-heading">
-            <div><p class="section-kicker">BODY MAP</p><h2>Pick a muscle</h2></div>
+            <h2>Pick a muscle</h2>
             <div class="view-toggle" role="group" aria-label="Body view">
               <button type="button" class="view-button is-active" data-view="front" aria-pressed="true">Front</button>
               <button type="button" class="view-button" data-view="back" aria-pressed="false">Back</button>
@@ -42,27 +61,27 @@
           </div>
           <div class="map-stage">
             <div class="map-side-label map-side-label-left" aria-hidden="true"><span id="map-side-name">FRONT VIEW</span></div>
+            <button type="button" id="map-selection" class="map-selection"><span id="map-selection-name">Chest</span><small id="map-selection-count">8 moves</small><span aria-hidden="true">↓</span></button>
             <div id="figure-stage" class="figure-stage" aria-hidden="true">STARTING LINE</div>
             <svg id="body-map" class="body-map" viewBox="0 0 320 590" role="group" aria-label="Interactive muscle map">
-<defs><linearGradient id="skin" x1="0" x2="1"><stop stop-color="#343f3b"/><stop offset=".5" stop-color="#59645b"/><stop offset="1" stop-color="#343f3b"/></linearGradient><linearGradient id="muscle-fill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c7997d"/><stop offset="1" stop-color="#7e5747"/></linearGradient><linearGradient id="muscle-active" x2="0" y2="1"><stop stop-color="#ffc18d"/><stop offset="1" stop-color="#f27b49"/></linearGradient></defs>
+<defs><linearGradient id="skin" x1="0" x2="1"><stop stop-color="#121714"/><stop offset=".25" stop-color="#232b25"/><stop offset=".5" stop-color="#2d3630"/><stop offset=".75" stop-color="#232b25"/><stop offset="1" stop-color="#121714"/></linearGradient><linearGradient id="muscle-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a2ad9f"/><stop offset="1" stop-color="#626e64"/></linearGradient><linearGradient id="muscle-active" x2="0" y2="1"><stop stop-color="#e2ff9c"/><stop offset="1" stop-color="#9fd13c"/></linearGradient><linearGradient id="muscle-workout" x2="0" y2="1"><stop stop-color="#ffb184"/><stop offset="1" stop-color="#e8703a"/></linearGradient><radialGradient id="floor-glow"><stop stop-color="#c6f36a" stop-opacity=".35"/><stop offset="1" stop-color="#c6f36a" stop-opacity="0"/></radialGradient></defs>
+<ellipse cx="160" cy="566" rx="95" ry="16" fill="url(#floor-glow)" aria-hidden="true"/>
 <ellipse class="body-shadow" cx="160" cy="567" rx="55" ry="7"/>
 <g class="body-base" aria-hidden="true"><path d="M146 72 L145 88 Q136 97 116 102 Q99 105 93 125 L81 166 Q76 187 69 205 L53 254 L46 278 Q37 293 40 310 Q42 317 46 310 L50 296 L50 317 Q53 322 56 315 L59 295 Q66 294 65 284 L64 273 L82 240 Q95 219 97 199 L111 164 Q115 195 120 218 L118 247 Q108 271 111 303 L119 372 Q122 389 121 402 Q115 433 123 463 L132 528 L129 544 Q115 554 117 562 Q134 568 148 561 L150 544 L145 527 L145 464 Q152 435 148 407 L149 390 L154 330 L160 299L166 330 L171 390 L172 407 Q168 435 175 464 L175 527 L170 544 L172 561 Q186 568 203 562 Q205 554 191 544 L188 528 L197 463 Q205 433 199 402 Q198 389 201 372 L209 303 Q212 271 202 247 L200 218 Q205 195 209 164 L223 199 Q225 219 238 240 L256 273 L255 284 Q254 294 261 295 L264 315 Q267 322 270 317 L270 296 L274 310 Q278 317 280 310 Q283 293 274 278 L267 254 L251 205 Q244 187 239 166 L227 125 Q221 105 204 102 Q184 97 175 88 L174 72 Z"/><path d="M139 35 Q139 17 160 16 Q181 17 181 35 L179 57 Q174 75 160 78 Q146 75 141 57 Z"/></g>
 <g class="muscle-layer" data-side="front" aria-label="Front muscle groups"><g class="muscle-zone" data-muscle="shoulders" role="button" tabindex="0" aria-label="Select shoulders"><path d="M116 108 Q99 111 98 131 L94 148 Q105 150 116 136 L124 114 Z"/><path d="M116 108 Q99 111 98 131 L94 148 Q105 150 116 136 L124 114 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="chest" role="button" tabindex="0" aria-label="Select chest"><path d="M128 112 Q144 109 157 117 L157 153 Q139 164 121 149 L118 139 Z"/><path d="M128 112 Q144 109 157 117 L157 153 Q139 164 121 149 L118 139 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="biceps" role="button" tabindex="0" aria-label="Select biceps"><path d="M94 153 Q104 153 111 143 L108 168 Q104 189 94 197 L86 190 Z"/><path d="M94 153 Q104 153 111 143 L108 168 Q104 189 94 197 L86 190 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="forearms" role="button" tabindex="0" aria-label="Select forearms"><path d="M85 199 Q90 205 95 201 Q91 224 79 243 L63 272 L56 269 L67 235 Z"/><path d="M85 199 Q90 205 95 201 Q91 224 79 243 L63 272 L56 269 L67 235 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="core" role="button" tabindex="0" aria-label="Select core"><path d="M143 165 L157 165 L157 183 L141 183 Z"/><path d="M143 165 L157 165 L157 183 L141 183 Z" transform="translate(320 0) scale(-1 1)"/><path d="M141 188 L157 188 L157 207 L142 207 Z"/><path d="M141 188 L157 188 L157 207 L142 207 Z" transform="translate(320 0) scale(-1 1)"/><path d="M143 212 L157 212 L157 235 Q150 235 144 228 Z"/><path d="M143 212 L157 212 L157 235 Q150 235 144 228 Z" transform="translate(320 0) scale(-1 1)"/><path d="M122 158 L136 169 L135 205 L142 241 L125 228 L122 204 L116 176 Z"/><path d="M122 158 L136 169 L135 205 L142 241 L125 228 L122 204 L116 176 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="quadriceps" role="button" tabindex="0" aria-label="Select quadriceps"><path d="M122 257 Q136 262 153 251 L150 299 L143 348 Q140 370 132 377 Q125 365 126 345 L118 293 Z"/><path d="M122 257 Q136 262 153 251 L150 299 L143 348 Q140 370 132 377 Q125 365 126 345 L118 293 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="calves" role="button" tabindex="0" aria-label="Select calves"><path d="M126 402 Q137 397 144 407 L141 451 L139 501 L134 499 L127 453 Z"/><path d="M126 402 Q137 397 144 407 L141 451 L139 501 L134 499 L127 453 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="body-detail" aria-hidden="true"><path d="M148 90 L160 108 L172 90 M125 244 L155 258 M195 244 L165 258 M128 388 Q135 381 144 388 M176 388 Q185 381 192 388"/></g></g>
 <g class="muscle-layer" data-side="back" aria-label="Back muscle groups" hidden><g class="muscle-zone" data-muscle="shoulders" role="button" tabindex="0" aria-label="Select shoulders"><path d="M116 108 Q99 111 98 131 L94 148 Q105 150 116 136 L124 114 Z"/><path d="M116 108 Q99 111 98 131 L94 148 Q105 150 116 136 L124 114 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="traps" role="button" tabindex="0" aria-label="Select traps"><path d="M147 91 L157 96 L157 160 L145 144 L124 120 L121 109 Z"/><path d="M147 91 L157 96 L157 160 L145 144 L124 120 L121 109 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="triceps" role="button" tabindex="0" aria-label="Select triceps"><path d="M96 153 L110 145 L108 169 Q104 190 94 198 L87 187 Z"/><path d="M96 153 L110 145 L108 169 Q104 190 94 198 L87 187 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="lats" role="button" tabindex="0" aria-label="Select lats"><path d="M122 138 L139 154 L155 168 L150 208 L138 230 L124 206 L117 174 Z"/><path d="M122 138 L139 154 L155 168 L150 208 L138 230 L124 206 L117 174 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="lower-back" role="button" tabindex="0" aria-label="Select lower back"><path d="M155 185 L155 241 L143 249 L132 238 L143 219 Z"/><path d="M155 185 L155 241 L143 249 L132 238 L143 219 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="glutes" role="button" tabindex="0" aria-label="Select glutes"><path d="M125 246 Q138 252 157 247 L157 280 Q145 298 121 282 Q115 267 125 246 Z"/><path d="M125 246 Q138 252 157 247 L157 280 Q145 298 121 282 Q115 267 125 246 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="hamstrings" role="button" tabindex="0" aria-label="Select hamstrings"><path d="M120 291 Q135 302 153 288 L148 334 L141 377 L130 380 L123 347 Z"/><path d="M120 291 Q135 302 153 288 L148 334 L141 377 L130 380 L123 347 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="muscle-zone" data-muscle="calves" role="button" tabindex="0" aria-label="Select calves"><path d="M130 400 Q141 398 145 413 Q149 435 140 464 L135 488 L129 459 Q120 434 125 414 Z"/><path d="M130 400 Q141 398 145 413 Q149 435 140 464 L135 488 L129 459 Q120 434 125 414 Z" transform="translate(320 0) scale(-1 1)"/></g><g class="body-detail" aria-hidden="true"><path d="M160 94 L160 242 M128 389 L144 389 M176 389 L192 389"/></g></g>
 </svg>
-            <div class="map-side-label map-side-label-right" aria-hidden="true">SELECT<br>A MUSCLE</div>
           </div>
-          <div class="map-footer"><span class="map-key"><i></i> Muscle groups</span><span class="map-hint">Tap the map or choose below</span></div>
+          <div class="map-footer"><span class="map-key"><i></i> Selected</span><span class="map-key map-key-workout"><i></i> In today's workout</span><span class="map-hint">Tap the map or choose below</span></div>
           <div id="muscle-choices" class="muscle-choices" aria-label="Muscle group choices"></div>
         </div>
 
         <aside class="panel exercise-panel" aria-live="polite">
           <div class="panel-heading exercise-heading">
-            <div><p class="section-kicker">EXERCISE LIBRARY</p><h2 id="exercise-title">Chest</h2></div>
+            <h2 id="exercise-title">Chest</h2>
             <span id="exercise-count" class="count-pill">3 MOVES</span>
           </div>
           <section class="preset-panel" aria-labelledby="preset-heading">
-            <p class="section-kicker">PRESET WORKOUTS</p>
             <h3 id="preset-heading">Start with a body part</h3>
             <label for="preset-muscle">Choose a workout</label>
             <select id="preset-muscle" class="unit-select"></select>
@@ -84,7 +103,6 @@
 
       <section id="log-view" class="secondary-view" aria-labelledby="log-heading" hidden>
         <div class="secondary-heading">
-          <p class="eyebrow"><span>02</span> LOG YOUR SESSION</p>
           <h1 id="log-heading" tabindex="-1">One set at a time.</h1>
           <p class="intro-copy">Log weighted sets, bodyweight reps, or timed holds. Your workout saves on this device.</p>
         </div>
@@ -111,13 +129,16 @@
         <div id="log-session" class="log-session"></div>
         <div class="finish-row">
           <p id="finish-hint" class="finish-hint">Log at least one set to finish.</p>
-          <button type="button" id="finish-workout" class="finish-button" disabled>Finish workout</button>
+          <div class="finish-actions">
+            <button type="button" id="discard-workout" class="ghost-button danger">Discard</button>
+            <button type="button" id="save-for-later" class="ghost-button">Save for later</button>
+            <button type="button" id="finish-workout" class="finish-button" disabled>Finish workout</button>
+          </div>
         </div>
       </section>
 
       <section id="special-view" class="secondary-view" aria-labelledby="special-heading" hidden>
         <div class="secondary-heading">
-          <p class="eyebrow"><span>★</span> SPECIAL WORKOUT</p>
           <h1 id="special-heading">Super Saiyan.</h1>
           <p class="intro-copy">A full-body combat workout from DAREBEE. Choose a level, then log each exercise as you complete it.</p>
         </div>
@@ -153,12 +174,11 @@
 
       <section id="history-view" class="secondary-view" aria-labelledby="history-heading" hidden>
         <div class="secondary-heading">
-          <p class="eyebrow"><span>03</span> YOUR TRAINING</p>
           <h1 id="history-heading" tabindex="-1">Training calendar.</h1>
           <p class="intro-copy">See workout days and mark gym visits. Your calendar saves in this browser on this device.</p>
         </div>
         <section class="progress-panel" aria-labelledby="progress-heading">
-          <div class="progress-heading"><div><p class="section-kicker">YOUR MOMENTUM</p><h2 id="progress-heading">Training progress</h2></div><span id="progress-stage" class="progress-stage"></span></div>
+          <div class="progress-heading"><h2 id="progress-heading">Training progress</h2><span id="progress-stage" class="progress-stage"></span></div>
           <div class="progress-count"><strong id="progress-days">0</strong><span>training days logged</span></div>
           <div id="progress-track" class="progress-track" role="progressbar" aria-label="Training days toward the next milestone" aria-valuemin="0" aria-valuenow="0" aria-valuemax="5"><span id="progress-fill"></span></div>
           <p id="progress-next" class="progress-next"></p>
@@ -173,16 +193,16 @@
         </section>
         <div class="calendar-panel" aria-label="Training calendar">
           <div class="calendar-toolbar">
-            <button type="button" id="calendar-prev" class="calendar-arrow" aria-label="Previous month">‹</button>
+            <button type="button" id="calendar-prev" class="calendar-arrow" aria-label="Previous month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
             <h2 id="calendar-month"></h2>
-            <button type="button" id="calendar-next" class="calendar-arrow" aria-label="Next month">›</button>
+            <button type="button" id="calendar-next" class="calendar-arrow" aria-label="Next month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
           </div>
           <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
           <div id="calendar-grid" class="calendar-grid" aria-label="Days of the month"></div>
           <div class="calendar-key"><span><i class="calendar-key-dot workout-dot"></i> Workout logged</span><span><i class="calendar-key-dot gym-dot"></i> Gym day marked</span></div>
         </div>
         <section class="day-panel" aria-labelledby="selected-day-heading">
-          <div class="day-panel-head"><div><p class="section-kicker">SELECTED DAY</p><h2 id="selected-day-heading"></h2></div><button type="button" id="mark-gym-day" class="draft-open"></button></div>
+          <div class="day-panel-head"><h2 id="selected-day-heading"></h2><button type="button" id="mark-gym-day" class="draft-open"></button></div>
           <label for="day-note">Day note</label>
           <textarea id="day-note" rows="2" maxlength="300" placeholder="How did training go?"></textarea>
           <p class="day-note-hint">Your note saves as you type.</p>
@@ -203,10 +223,34 @@
       <div id="app-toast" class="app-toast" role="status" aria-live="polite" hidden></div>
       <dialog id="exercise-guide" class="exercise-guide" aria-labelledby="guide-title">
         <div class="guide-head">
-          <div><p class="section-kicker">MOVEMENT GUIDE</p><h2 id="guide-title"></h2></div>
-          <button type="button" id="close-guide" class="guide-close" aria-label="Close movement guide">×</button>
+          <h2 id="guide-title"></h2>
+          <button type="button" id="close-guide" class="guide-close" aria-label="Close movement guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div id="guide-content"></div>
+      </dialog>
+      <dialog id="confirm-dialog" class="app-dialog" aria-labelledby="confirm-title">
+        <form method="dialog">
+          <h2 id="confirm-title"></h2>
+          <p id="confirm-message"></p>
+          <div class="dialog-actions">
+            <button value="cancel" class="ghost-button">Cancel</button>
+            <button value="ok" id="confirm-ok" class="finish-button danger-fill">Delete</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog id="save-dialog" class="app-dialog" aria-labelledby="save-title">
+        <form id="save-form" method="dialog">
+          <h2 id="save-title">Save for later</h2>
+          <p>Saves this exercise list so you can start it again in one tap.</p>
+          <label for="save-name">Name</label>
+          <input id="save-name" class="set-input" maxlength="40" required autocomplete="off">
+          <label class="check-row"><input type="checkbox" id="save-clear"> <span>Clear it from today's log</span></label>
+          <p id="save-clear-hint" class="save-hint"></p>
+          <div class="dialog-actions">
+            <button type="button" id="save-cancel" class="ghost-button">Cancel</button>
+            <button type="submit" class="finish-button">Save workout</button>
+          </div>
+        </form>
       </dialog>
       <footer class="page-footer"><span>REPDAY</span><span>TRAIN WITH INTENTION</span></footer>
     </main>

@@ -102,7 +102,8 @@ function emptyState() {
     manualDays: [],
     dayNotes: {},
     session: null,
-    history: []
+    history: [],
+    savedWorkouts: []
   };
 }
 
@@ -140,7 +141,10 @@ function loadState() {
           return item;
         })
       } : null,
-      history: Array.isArray(saved.history) ? saved.history : []
+      history: Array.isArray(saved.history) ? saved.history : [],
+      savedWorkouts: Array.isArray(saved.savedWorkouts)
+        ? saved.savedWorkouts.filter((workout) => workout && typeof workout.name === "string" && Array.isArray(workout.exercises))
+        : []
     };
   } catch {
     return emptyState();
@@ -292,11 +296,242 @@ function saveState() {
   }
 }
 
-function showToast(message) {
-  toast.textContent = message;
+function showToast(message, action) {
+  toast.replaceChildren(document.createTextNode(message));
+  if (action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "toast-action";
+    button.textContent = action.label;
+    button.addEventListener("click", () => {
+      toast.hidden = true;
+      action.run();
+    });
+    toast.append(button);
+  }
   toast.hidden = false;
   window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.hidden = true; }, 3200);
+  toastTimer = window.setTimeout(() => { toast.hidden = true; }, action ? 6000 : 3200);
+}
+
+function confirmAction(title, message, okLabel) {
+  const dialog = document.getElementById("confirm-dialog");
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-message").textContent = message;
+  document.getElementById("confirm-ok").textContent = okLabel;
+  dialog.returnValue = "";
+  dialog.showModal();
+  return new Promise((resolve) => {
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok"), { once: true });
+  });
+}
+
+function cloneSession(session) {
+  return JSON.parse(JSON.stringify(session));
+}
+
+function countSets(session) {
+  return session.exercises.reduce((sum, item) => sum + item.sets.length, 0);
+}
+
+function plural(count, word) {
+  return count + " " + word + (count === 1 ? "" : "s");
+}
+
+async function discardWorkout() {
+  if (!state.session) return;
+  const sets = countSets(state.session);
+  const ok = await confirmAction(
+    "Discard today's workout?",
+    plural(state.session.exercises.length, "exercise") + (sets ? " and " + plural(sets, "logged set") : "") + " will be removed. You can undo right after.",
+    "Discard"
+  );
+  if (!ok) return;
+  const removed = cloneSession(state.session);
+  state.session = null;
+  state.restEndsAt = null;
+  saveState();
+  renderApp();
+  showToast("Workout discarded.", {
+    label: "Undo",
+    run: () => {
+      state.session = removed;
+      saveState();
+      renderApp();
+    }
+  });
+}
+
+async function deleteHistoryWorkout(session) {
+  const ok = await confirmAction(
+    "Delete this workout?",
+    "It will be removed from History and your progress. You can undo right after.",
+    "Delete"
+  );
+  if (!ok) return;
+  const index = state.history.indexOf(session);
+  if (index === -1) return;
+  state.history.splice(index, 1);
+  saveState();
+  renderApp();
+  showToast("Workout deleted.", {
+    label: "Undo",
+    run: () => {
+      state.history.splice(Math.min(index, state.history.length), 0, session);
+      saveState();
+      renderApp();
+    }
+  });
+}
+
+function templateFrom(session, name) {
+  return {
+    id: makeId(),
+    name,
+    createdAt: new Date().toISOString(),
+    exercises: session.exercises.map((item) => {
+      const entry = { exercise: item.exercise, muscle: item.muscle };
+      if (item.targetReps) {
+        entry.targetReps = item.targetReps;
+        entry.targetSets = item.targetSets;
+      }
+      return entry;
+    })
+  };
+}
+
+function workoutLabel(session) {
+  const muscles = [...new Set(session.exercises.map((item) => item.muscle))];
+  return muscles.length <= 2 ? muscles.join(" & ") : "Full body";
+}
+
+function shortDate(iso) {
+  return formatDate(iso, { month: "short", day: "numeric" });
+}
+
+function openSaveDialog() {
+  if (!state.session || !state.session.exercises.length) return;
+  const sets = countSets(state.session);
+  const clear = document.getElementById("save-clear");
+  document.getElementById("save-name").value = workoutLabel(state.session) + " · " + shortDate(new Date().toISOString());
+  clear.checked = sets === 0;
+  document.getElementById("save-clear-hint").textContent = sets
+    ? "You've logged " + plural(sets, "set") + " today. Clearing removes them; finish the workout instead to keep them in History."
+    : "Only the exercise list is saved, not weights or reps.";
+  document.getElementById("save-dialog").showModal();
+  document.getElementById("save-name").select();
+}
+
+function saveForLater(event) {
+  event.preventDefault();
+  const name = document.getElementById("save-name").value.trim();
+  if (!name || !state.session) return;
+  state.savedWorkouts.unshift(templateFrom(state.session, name));
+  const clear = document.getElementById("save-clear").checked;
+  if (clear) {
+    state.session = null;
+    state.restEndsAt = null;
+    state.appView = "build";
+  }
+  saveState();
+  document.getElementById("save-dialog").close();
+  renderApp();
+  if (clear) window.scrollTo({ top: 0, behavior: "instant" });
+  showToast("Saved “" + name + "”" + (clear ? " and cleared today's log." : "."));
+}
+
+function startSavedWorkout(saved) {
+  if (!state.session) {
+    state.session = { id: makeId(), startedAt: new Date().toISOString(), workoutDate: state.workoutDate, weightUnit: state.weightUnit, exercises: [] };
+  }
+  let added = 0;
+  saved.exercises.forEach((entry) => {
+    if (state.session.exercises.some((item) => item.exercise === entry.exercise)) return;
+    state.session.exercises.push({ ...entry, id: makeId(), sets: [] });
+    added += 1;
+  });
+  state.appView = "log";
+  saveState();
+  renderApp();
+  window.scrollTo({ top: 0, behavior: "instant" });
+  showToast(added ? saved.name + " loaded · " + plural(added, "exercise") + "." : "Those exercises are already in today's workout.");
+}
+
+async function deleteSavedWorkout(saved) {
+  const ok = await confirmAction("Delete “" + saved.name + "”?", "This removes the saved workout. Your History is not affected.", "Delete");
+  if (!ok) return;
+  const index = state.savedWorkouts.indexOf(saved);
+  if (index === -1) return;
+  state.savedWorkouts.splice(index, 1);
+  saveState();
+  renderHome();
+  showToast("Saved workout deleted.", {
+    label: "Undo",
+    run: () => {
+      state.savedWorkouts.splice(Math.min(index, state.savedWorkouts.length), 0, saved);
+      saveState();
+      renderHome();
+    }
+  });
+}
+
+function saveHistoryAsTemplate(session) {
+  const name = workoutLabel(session) + " · " + shortDate(dateFromKey(workoutDay(session)).toISOString());
+  state.savedWorkouts.unshift(templateFrom(session, name));
+  saveState();
+  renderHome();
+  showToast("Saved “" + name + "” to your workouts.");
+}
+
+const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const checkIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const plusIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const trashIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+
+function renderHome() {
+  document.getElementById("home-date").textContent = formatDate(new Date().toISOString(), { weekday: "long", month: "long", day: "numeric" });
+  document.getElementById("home-saved").textContent = String(state.savedWorkouts.length);
+
+  const resume = document.getElementById("resume-card");
+  const session = state.session;
+  resume.hidden = !session || session.exercises.length === 0;
+  if (!resume.hidden) {
+    const sets = countSets(session);
+    const muscles = [...new Set(session.exercises.map((item) => item.muscle))];
+    document.getElementById("resume-title").textContent = muscles.length <= 3 ? muscles.join(" · ") : muscles.slice(0, 3).join(" · ") + " +" + (muscles.length - 3);
+    document.getElementById("resume-detail").textContent = plural(session.exercises.length, "exercise") + " · " + plural(sets, "set") + " logged";
+  }
+
+  const list = document.getElementById("saved-list");
+  list.replaceChildren();
+  document.getElementById("saved-empty").hidden = state.savedWorkouts.length > 0;
+  state.savedWorkouts.forEach((saved) => {
+    const item = document.createElement("li");
+    item.className = "saved-item";
+    const start = document.createElement("button");
+    start.type = "button";
+    start.className = "saved-start";
+    const title = document.createElement("strong");
+    title.textContent = saved.name;
+    const detail = document.createElement("span");
+    const muscles = [...new Set(saved.exercises.map((entry) => entry.muscle))];
+    detail.textContent = plural(saved.exercises.length, "exercise") + " · " + muscles.slice(0, 3).join(", ") + (muscles.length > 3 ? "…" : "");
+    const go = document.createElement("span");
+    go.className = "saved-go";
+    go.setAttribute("aria-hidden", "true");
+    go.textContent = "Start →";
+    start.append(title, detail, go);
+    start.setAttribute("aria-label", "Start " + saved.name + ", " + detail.textContent);
+    start.addEventListener("click", () => startSavedWorkout(saved));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "icon-button danger";
+    remove.setAttribute("aria-label", "Delete saved workout " + saved.name);
+    remove.innerHTML = trashIcon;
+    remove.addEventListener("click", () => deleteSavedWorkout(saved));
+    item.append(start, remove);
+    list.append(item);
+  });
 }
 
 function setAppView(view) {
@@ -344,11 +579,20 @@ function renderMap() {
     button.setAttribute("aria-pressed", String(active));
   });
 
+  const inWorkout = new Set(state.session ? state.session.exercises.map((item) => item.muscle) : []);
+  map.querySelectorAll(".muscle-zone").forEach((zone) => {
+    zone.classList.toggle("in-workout", inWorkout.has(muscleLabels[zone.dataset.muscle]));
+  });
+  const moves = (exercisesByMuscle[state.muscle] || []).length;
+  document.getElementById("map-selection-name").textContent = muscleLabels[state.muscle];
+  document.getElementById("map-selection-count").textContent = moves + " moves";
+  document.getElementById("map-selection").setAttribute("aria-label", "Show " + moves + " " + muscleLabels[state.muscle].toLowerCase() + " exercises");
+
   muscleChoices.replaceChildren();
   musclesByView[state.bodyView].forEach((muscle) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "muscle-chip" + (muscle === state.muscle ? " is-selected" : "");
+    button.className = "muscle-chip" + (muscle === state.muscle ? " is-selected" : "") + (inWorkout.has(muscleLabels[muscle]) ? " in-workout" : "");
     button.textContent = muscleLabels[muscle];
     button.setAttribute("aria-pressed", String(muscle === state.muscle));
     button.addEventListener("click", () => selectMuscle(muscle));
@@ -434,7 +678,7 @@ function renderExercises() {
     button.className = "exercise-option" + (chosen ? " is-selected" : "");
     button.setAttribute("aria-pressed", String(chosen));
     button.innerHTML = '<span class="exercise-number">' + String(index + 1).padStart(2, "0") +
-      '</span><span class="exercise-name"></span><span class="exercise-type">Exercise</span><span class="exercise-check" aria-hidden="true">' + (chosen ? "✓" : "+") + '</span>';
+      '</span><span class="exercise-name"></span><span class="exercise-type">Exercise</span><span class="exercise-check" aria-hidden="true">' + (chosen ? checkIcon : plusIcon) + '</span>';
     button.querySelector(".exercise-name").textContent = name;
     button.querySelector(".exercise-type").textContent = timedExercises.has(name) ? "Timed" : repsOnlyExercises.has(name) ? "Reps" : "Exercise";
     button.addEventListener("click", () => toggleExercise(name));
@@ -481,7 +725,7 @@ function renderDraft() {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "remove-exercise";
-      remove.textContent = "×";
+      remove.innerHTML = closeIcon;
       remove.setAttribute("aria-label", "Remove " + item.exercise + " from workout");
       remove.addEventListener("click", () => removeExercise(item.id));
       row.append(remove);
@@ -490,6 +734,8 @@ function renderDraft() {
   });
 
   renderNav();
+  renderHome();
+  renderMap();
 }
 
 function toggleExercise(name) {
@@ -571,6 +817,10 @@ function updateFinishState() {
     (item.pendingSeconds !== undefined && item.pendingSeconds !== "") || item.timerStartedAt
   ));
   finishButton.disabled = !hasSets || hasPending;
+  const hasExercises = Boolean(session && session.exercises.length);
+  document.getElementById("discard-workout").hidden = !hasExercises;
+  document.getElementById("save-for-later").hidden = !hasExercises;
+  document.querySelector(".finish-row").hidden = !hasExercises;
   const hint = document.getElementById("finish-hint");
   hint.textContent = hasPending
     ? "Save or clear the unfinished set before finishing."
@@ -847,7 +1097,7 @@ function renderLog() {
   if (!session || session.exercises.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-panel";
-    empty.innerHTML = '<span class="empty-mark" aria-hidden="true">01</span><h2>No exercises yet</h2><p>Choose a muscle and add exercises in Build to start logging.</p>';
+    empty.innerHTML = '<h2>No exercises yet</h2><p>Choose a muscle and add exercises in Build to start logging.</p>';
     const goBuild = document.createElement("button");
     goBuild.type = "button";
     goBuild.className = "add-button";
@@ -858,15 +1108,12 @@ function renderLog() {
     return;
   }
 
-  session.exercises.forEach((item, itemIndex) => {
+  session.exercises.forEach((item) => {
     const card = document.createElement("article");
     card.className = "log-card";
     const header = document.createElement("div");
     header.className = "log-card-heading";
     const headingGroup = document.createElement("div");
-    const kicker = document.createElement("p");
-    kicker.className = "section-kicker";
-    kicker.textContent = "EXERCISE " + String(itemIndex + 1).padStart(2, "0");
     const title = document.createElement("h2");
     title.textContent = item.exercise;
     const subtitle = document.createElement("p");
@@ -875,7 +1122,7 @@ function renderLog() {
     if (timedExercises.has(item.exercise)) subtitle.textContent += " · Timed set";
     else if (repsOnlyExercises.has(item.exercise)) subtitle.textContent += " · Reps only";
     if (item.targetReps) subtitle.textContent += " · Target " + item.targetReps + " reps × " + item.targetSets + " rounds";
-    headingGroup.append(kicker, title, subtitle);
+    headingGroup.append(title, subtitle);
     header.append(headingGroup, guideButton(item.exercise));
 
     const setHeader = document.createElement("div");
@@ -906,7 +1153,7 @@ function renderLog() {
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "remove-set";
-        remove.textContent = "×";
+        remove.innerHTML = closeIcon;
         remove.setAttribute("aria-label", "Remove set " + (index + 1) + " for " + item.exercise);
         remove.addEventListener("click", () => {
           if (!window.confirm("Remove this logged set?")) return;
@@ -1104,7 +1351,7 @@ function renderProgress() {
   track.setAttribute("aria-valuemin", String(previous));
   track.setAttribute("aria-valuenow", String(count));
   track.setAttribute("aria-valuemax", String(next));
-  document.getElementById("progress-fill").style.width = Math.min(100, ((count - previous) / (next - previous)) * 100) + "%";
+  document.getElementById("progress-fill").style.transform = "scaleX(" + Math.min(1, (count - previous) / (next - previous)) + ")";
   document.getElementById("progress-next").textContent = (next - count) + (next - count === 1 ? " day" : " days") + " until your " + next + "-day milestone.";
 
   const today = dateFromKey(localDateKey(new Date()));
@@ -1112,6 +1359,8 @@ function renderProgress() {
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
   const weekCount = days.filter((day) => day >= localDateKey(monday)).length;
   document.getElementById("weekly-goal").value = String(state.weeklyGoal);
+  document.getElementById("home-week").textContent = weekCount + "/" + state.weeklyGoal;
+  document.getElementById("home-days").textContent = String(count);
   document.getElementById("progress-week").textContent = weekCount + " / " + state.weeklyGoal + " days";
   document.getElementById("progress-week-detail").textContent = weekCount >= state.weeklyGoal ? "Weekly goal reached" : "This week's training days";
 
@@ -1202,7 +1451,7 @@ function renderHistory() {
   if (selectedWorkouts.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-panel";
-    empty.innerHTML = '<span class="empty-mark" aria-hidden="true">—</span><h2>No session logged for this day</h2><p>Choose a highlighted day to review a workout, or build one for this date.</p>';
+    empty.innerHTML = '<h2>No session logged for this day</h2><p>Choose a highlighted day to review a workout, or build one for this date.</p>';
     const goBuild = document.createElement("button");
     goBuild.type = "button";
     goBuild.className = "add-button";
@@ -1229,7 +1478,23 @@ function renderHistory() {
     const totalSets = session.exercises.reduce((sum, item) => sum + item.sets.length, 0);
     summary.textContent = session.exercises.length + (session.exercises.length === 1 ? " exercise" : " exercises") +
       " · " + totalSets + (totalSets === 1 ? " set" : " sets");
-    header.append(title, summary);
+    const actions = document.createElement("div");
+    actions.className = "history-actions";
+    const reuse = document.createElement("button");
+    reuse.type = "button";
+    reuse.className = "ghost-button small";
+    reuse.textContent = "Save as workout";
+    reuse.addEventListener("click", () => saveHistoryAsTemplate(session));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "icon-button danger";
+    remove.setAttribute("aria-label", "Delete this workout from history");
+    remove.innerHTML = trashIcon;
+    remove.addEventListener("click", () => deleteHistoryWorkout(session));
+    actions.append(reuse, remove);
+    const headingText = document.createElement("div");
+    headingText.append(title, summary);
+    header.append(headingText, actions);
     article.append(header);
 
     session.exercises.forEach((item) => {
@@ -1264,7 +1529,7 @@ function finishWorkout() {
     ...state.session,
     completedAt: new Date().toISOString(),
     workoutDate: isDateKey(state.session.workoutDate) ? state.session.workoutDate : state.workoutDate,
-    exercises: state.session.exercises.map((item) => ({
+    exercises: state.session.exercises.filter((item) => item.sets.length > 0).map((item) => ({
       ...item,
       sets: item.sets.map((set) => ({ ...set }))
     }))
@@ -1323,6 +1588,9 @@ document.querySelectorAll(".view-button").forEach((button) => {
     saveState();
     renderMap();
     renderExercises();
+    map.classList.remove("is-flipping");
+    map.getBoundingClientRect();
+    map.classList.add("is-flipping");
   });
 });
 
@@ -1398,6 +1666,15 @@ document.querySelectorAll("[data-rest-adjust]").forEach((button) => {
   button.addEventListener("click", () => adjustRest(Number(button.dataset.restAdjust)));
 });
 document.getElementById("rest-skip").addEventListener("click", stopRest);
+document.getElementById("discard-workout").addEventListener("click", discardWorkout);
+document.getElementById("resume-discard").addEventListener("click", discardWorkout);
+document.getElementById("resume-open").addEventListener("click", () => setAppView("log"));
+document.getElementById("save-for-later").addEventListener("click", openSaveDialog);
+document.getElementById("save-form").addEventListener("submit", saveForLater);
+document.getElementById("save-cancel").addEventListener("click", () => document.getElementById("save-dialog").close());
+document.getElementById("map-selection").addEventListener("click", () => {
+  document.querySelector(".exercise-panel").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+});
 
 unitSelect.addEventListener("change", () => {
   state.weightUnit = unitSelect.value === "kg" ? "kg" : "lb";

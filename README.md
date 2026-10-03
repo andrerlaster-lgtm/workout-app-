@@ -15,7 +15,11 @@ A phone-first workout app for finding exercises by muscle group and recording gy
 - Browse eight exercises for each of the 13 muscle groups and tap one to add it to your workout (tap again to remove it). A bar at the bottom shows how many exercises are queued and opens the log.
 - Record weighted sets in pounds or kilograms, bodyweight sets by reps only, and holds by duration. Push-ups, pull-ups, chin-ups, dips, and other bodyweight moves have no weight field; each saved set shows its rep count. Planks, farmer carries, plate pinches, Pallof presses, and Superman use a start/pause/reset timer or manually entered seconds.
 - A rest timer starts after every saved set (default 1 min 30; choose Off, 30 sec, 1, 1:30, 2, or 3 min in the Log toolbar). Adjust it by ±15 seconds or skip it; it beeps and vibrates where the browser allows when rest is over, and keeps counting through a page reload.
-- Finish a workout and review completed sessions in History.
+- The home screen shows today's date, quick stats (this week, training days, saved workouts), a **Continue** card for a workout in progress, and your saved workouts.
+- **Save for later:** in the Log, save the current exercise list under a name (optionally clearing today's log). Start a saved workout from Home in one tap; History workouts can also be saved with **Save as workout**.
+- **Quick delete:** discard today's workout (Log or the Home card), delete a finished workout from History, or delete a saved workout. Each asks to confirm and offers **Undo** for a few seconds.
+- The body map highlights the selected muscle in lime and muscles already in today's workout in orange.
+- Finish a workout and review completed sessions in History. Exercises with no logged sets are left out of the saved session.
 - Use the training calendar to see workout days, choose the day for a workout, mark gym visits without a session, and save short day notes.
 - See training days, progress toward the next milestone, a configurable weekly goal, the largest same-unit lift gain and bodyweight rep gain against each exercise's first logged workout, and recent average sets per workout. The gym lighting and body-map glow change after 5, 15, and 30 training days as visual milestones.
 - Save the active workout and workout history in this browser's local storage.

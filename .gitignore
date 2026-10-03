@@ -3,3 +3,4 @@ work/
 node_modules/
 .env*
 .DS_Store
+.claude/
