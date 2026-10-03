@@ -17,19 +17,19 @@ function dateFromKey(value) {
 }
 
 const exercisesByMuscle = {
-  shoulders: ["Overhead press", "Dumbbell lateral raise", "Reverse fly"],
-  chest: ["Barbell bench press", "Incline dumbbell press", "Push-up"],
-  biceps: ["Dumbbell curl", "Barbell curl", "Hammer curl"],
-  forearms: ["Farmer carry", "Reverse curl", "Wrist curl"],
-  core: ["Cable crunch", "Plank", "Dead bug"],
-  quadriceps: ["Barbell squat", "Leg press", "Bulgarian split squat"],
-  calves: ["Standing calf raise", "Seated calf raise", "Leg press calf raise"],
-  traps: ["Dumbbell shrug", "Barbell shrug", "Face pull"],
-  triceps: ["Cable pushdown", "Overhead triceps extension", "Close-grip press"],
-  lats: ["Lat pulldown", "Seated cable row", "One-arm dumbbell row"],
-  "lower-back": ["Back extension", "Bird dog", "Good morning"],
-  glutes: ["Hip thrust", "Glute bridge", "Cable kickback"],
-  hamstrings: ["Romanian deadlift", "Seated leg curl", "Lying leg curl"]
+  shoulders: ["Overhead press", "Dumbbell lateral raise", "Reverse fly", "Arnold press", "Front dumbbell raise", "Cable rear delt fly", "Seated dumbbell press", "Band pull-apart"],
+  chest: ["Barbell bench press", "Incline dumbbell press", "Push-up", "Dumbbell bench press", "Cable crossover", "Dumbbell fly", "Decline dumbbell press", "Machine chest press"],
+  biceps: ["Dumbbell curl", "Barbell curl", "Hammer curl", "Incline dumbbell curl", "Concentration curl", "Preacher curl", "Cable hammer curl", "Spider curl"],
+  forearms: ["Farmer carry", "Reverse curl", "Wrist curl", "Plate pinch", "Wrist roller", "Cable wrist curl", "Reverse wrist curl", "Finger curl"],
+  core: ["Cable crunch", "Plank", "Dead bug", "Hanging leg raise", "Reverse crunch", "Ab roller", "Pallof press", "Cable wood chop"],
+  quadriceps: ["Barbell squat", "Leg press", "Bulgarian split squat", "Front squat", "Goblet squat", "Leg extension", "Dumbbell lunge", "Hack squat"],
+  calves: ["Standing calf raise", "Seated calf raise", "Leg press calf raise", "Donkey calf raise", "Standing dumbbell calf raise", "Seated barbell calf raise", "Smith machine calf raise", "Single-leg seated calf raise"],
+  traps: ["Dumbbell shrug", "Barbell shrug", "Face pull", "Cable shrug", "Behind-the-back Smith shrug", "Machine shrug", "Cable upright row", "Scapular pull-up"],
+  triceps: ["Cable pushdown", "Overhead triceps extension", "Close-grip press", "Bench dip", "EZ-bar skull crusher", "Rope pushdown", "One-arm dumbbell extension", "Lying cable triceps extension"],
+  lats: ["Lat pulldown", "Seated cable row", "One-arm dumbbell row", "Pull-up", "Chin-up", "Close-grip lat pulldown", "Straight-arm pulldown", "One-arm lat pulldown"],
+  "lower-back": ["Back extension", "Bird dog", "Good morning", "Barbell deadlift", "Rack pull", "Superman", "Reverse hyperextension", "Seated good morning"],
+  glutes: ["Hip thrust", "Glute bridge", "Cable kickback", "Single-leg glute bridge", "Cable pull-through", "Glute kickback", "Banded hip extension", "Step-up with knee raise"],
+  hamstrings: ["Romanian deadlift", "Seated leg curl", "Lying leg curl", "Standing leg curl", "Exercise ball leg curl", "Glute-ham raise", "Stiff-leg dumbbell deadlift", "Single-leg kettlebell deadlift"]
 };
 
 // Exercise lists only: completed sets and weights are always entered by the user.

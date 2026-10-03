@@ -6,13 +6,13 @@ A phone-first workout app for finding exercises by muscle group and recording gy
 
 - Original gym background with an interactive anatomy figure; visual direction informed by the supplied Nike design reference.
 - Special Workouts tab with DAREBEE's [Super Saiyan workout](https://darebee.com/workouts/super-saiyan-workout.html), four round levels, exercise targets, and one-tap loading into the workout log.
-- Tap **See movement** beside any exercise in Build, Special, or Log to view a two-pose visual guide and movement steps. All 48 exercise names have a guide.
+- Tap **See movement** beside any exercise in Build, Special, or Log to view a two-pose visual guide and movement steps. All 113 exercise names have a guide.
 
 - Load one of 13 body-part workout presets, preview its exercises, and add it to the current session without duplicate exercises or losing logged sets.
 
 - Switch between front and back views of the interactive muscle map.
 - Select a muscle group on the map or from the accessible button list.
-- Browse sample exercises for the selected muscle and add them to a workout.
+- Browse eight exercises for each of the 13 muscle groups and add them to a workout.
 - Record each set's weight and reps, with pounds or kilograms.
 - Finish a workout and review completed sessions in History.
 - Use the training calendar to see workout days, choose the day for a workout, mark gym visits without a session, and save short day notes.
@@ -22,7 +22,7 @@ Workout data stays on the device and browser where it was entered. It does not s
 
 ## Movement guide images
 
-The 88 movement photos and their exercise instructions come from [Free Exercise DB](https://github.com/yuhonas/free-exercise-db), which publishes its dataset under the Unlicense. The Bird dog, Punches, High knees, and Turning kicks diagrams are original SVG assets for this app. The Super Saiyan routine links to its [DAREBEE source](https://darebee.com/workouts/super-saiyan-workout.html).
+The 218 movement photos and their exercise instructions come from [Free Exercise DB](https://github.com/yuhonas/free-exercise-db), which publishes its dataset under the Unlicense. The Bird dog, Punches, High knees, and Turning kicks diagrams are original SVG assets for this app. The Super Saiyan routine links to its [DAREBEE source](https://darebee.com/workouts/super-saiyan-workout.html).
 
 ## Run locally
 
