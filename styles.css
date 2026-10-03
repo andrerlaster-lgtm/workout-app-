@@ -319,3 +319,46 @@ body[data-progress-tier="2"] .map-stage,body[data-progress-tier="3"] .map-stage 
 .progress-message { margin:15px 0 0; color:var(--lime); font-size:12px; font-weight:700; }
 @media(max-width:600px) { .progress-panel { padding:16px; } }
 @media(max-width:390px) { .progress-stage { font-size:9px; } .progress-count span { font-size:11px; } }
+
+/* UI refresh: icon nav, phone tab bar, one-tap exercises, sticky logging CTA */
+.nav-icon { width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.nav-button.is-active .nav-icon { color:var(--lime); }
+.guide-trigger { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:44px; }
+.guide-trigger svg { width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linejoin:round; }
+.guide-trigger svg path { fill:currentColor; stroke:none; }
+.exercise-choice-row .guide-trigger { width:52px; max-width:none; padding:0; }
+.exercise-choice-row .guide-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.exercise-check { width:26px; height:26px; color:var(--muted); font-size:15px; font-weight:700; line-height:1; }
+.exercise-option.is-selected .exercise-check { font-size:13px; }
+.exercise-option:active { transform:scale(.99); }
+.build-cta { position:fixed; z-index:6; left:50%; bottom:24px; transform:translateX(-50%); width:min(520px,calc(100% - 28px)); min-height:58px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 10px 9px 18px; border:0; border-radius:16px; background:var(--lime); color:#17200f; box-shadow:0 14px 38px rgba(0,0,0,.45); text-align:left; cursor:pointer; }
+.build-cta[hidden] { display:none; }
+.build-cta > span:first-child { display:grid; line-height:1.2; }
+.build-cta strong { font-size:15px; font-weight:850; }
+.build-cta small { font-size:11px; font-weight:650; opacity:.72; }
+.build-cta-action { display:flex; align-items:center; gap:6px; min-height:40px; padding:0 14px; border-radius:11px; background:#17200f; color:var(--lime); font-size:13px; font-weight:800; }
+.build-cta:active { transform:translateX(-50%) scale(.99); }
+body:has(.build-cta:not([hidden])) .app-shell { padding-bottom:110px; }
+@media (max-width:760px) {
+  .app-shell { padding-bottom:calc(96px + env(safe-area-inset-bottom)); }
+  .app-nav { position:fixed; z-index:7; left:0; right:0; bottom:0; gap:0; padding:6px 8px calc(6px + env(safe-area-inset-bottom)); border:0; border-top:1px solid var(--line); border-radius:0; background:rgba(17,21,18,.94); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+  .nav-button, .nav-button:is(*) { position:relative; flex:1; min-width:0; min-height:54px; flex-direction:column; gap:3px; padding:4px 0; font-size:11px; }
+  .nav-button.is-active { background:transparent; box-shadow:none; color:var(--text); }
+  .nav-icon { width:22px; height:22px; }
+  .nav-count { position:absolute; top:3px; left:calc(50% + 6px); }
+  .topbar { justify-content:flex-start; }
+  .build-cta { bottom:calc(76px + env(safe-area-inset-bottom)); }
+  body:has(.build-cta:not([hidden])) .app-shell { padding-bottom:calc(170px + env(safe-area-inset-bottom)); }
+  .app-toast { bottom:calc(84px + env(safe-area-inset-bottom)); }
+  body:has(.build-cta:not([hidden])) .app-toast { bottom:calc(146px + env(safe-area-inset-bottom)); }
+}
+@media (max-width:390px) {
+  .nav-button, .nav-button:is(*) { min-width:0; padding-inline:0; font-size:10px; }
+}
+.exercise-choice-row .guide-trigger { border-color:rgba(198,243,106,.18); background:rgba(198,243,106,.04); }
+@media (max-width:760px) {
+  .log-toolbar { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto auto; grid-auto-flow:column; gap:6px 10px; align-items:end; }
+  .log-toolbar label { margin:0; }
+  .log-toolbar .unit-select { width:100%; min-width:0; margin:0; }
+  .log-toolbar .local-save-label { grid-column:1 / -1; grid-row:3; margin:4px 0 0; }
+}

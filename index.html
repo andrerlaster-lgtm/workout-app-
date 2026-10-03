@@ -18,10 +18,10 @@
         <span>REPDAY</span>
       </a>
       <nav class="app-nav" aria-label="Main navigation">
-        <button type="button" class="nav-button is-active" data-app-view="build" aria-current="page">Build</button>
-        <button type="button" class="nav-button" data-app-view="log">Log <span id="nav-log-count" class="nav-count" hidden>0</span></button>
-        <button type="button" class="nav-button" data-app-view="special">Special</button>
-        <button type="button" class="nav-button" data-app-view="history">History</button>
+        <button type="button" class="nav-button is-active" data-app-view="build" aria-current="page"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6M20 9v6M7 6v12M17 6v12M7 12h10"/></svg><span class="nav-label">Build</span></button>
+        <button type="button" class="nav-button" data-app-view="log"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg><span class="nav-label">Log</span><span id="nav-log-count" class="nav-count" hidden>0</span></button>
+        <button type="button" class="nav-button" data-app-view="special"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span class="nav-label">Special</span></button>
+        <button type="button" class="nav-button" data-app-view="history"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span class="nav-label">History</span></button>
       </nav>
       <span id="topbar-status" class="topbar-note"><span class="live-dot"></span> SAVED ON THIS DEVICE</span>
     </header>
@@ -71,10 +71,8 @@
             <button type="button" id="load-preset" class="draft-open">Load workout</button>
             <p class="preset-description">Adds to your current workout. Exercises already added are skipped.</p>
           </section>
-          <p id="exercise-subtitle" class="exercise-subtitle">Choose an exercise to add to your workout.</p>
+          <p id="exercise-subtitle" class="exercise-subtitle">Tap an exercise to add it. Tap again to remove it.</p>
           <div id="exercise-list" class="exercise-list"></div>
-          <button type="button" id="add-exercise" class="add-button" disabled><span>Add to workout</span><span class="button-arrow" aria-hidden="true">↗</span></button>
-          <div class="next-step-note"><span class="note-mark" aria-hidden="true">+</span><p><strong>Next up</strong><br>Log each set by weight, reps, or time.</p></div>
           <div class="workout-draft">
             <div class="draft-heading"><span>YOUR WORKOUT</span><span id="draft-count">0</span></div>
             <p id="draft-empty" class="draft-empty">Exercises you add will show up here.</p>
@@ -183,6 +181,7 @@
         </section>
         <div id="history-list" class="history-list"></div>
       </section>
+      <button type="button" id="build-cta" class="build-cta" hidden><span><strong id="build-cta-count">0 exercises</strong><small>in today's workout</small></span><span class="build-cta-action">Start logging <span aria-hidden="true">→</span></span></button>
       <div id="app-toast" class="app-toast" role="status" aria-live="polite" hidden></div>
       <dialog id="exercise-guide" class="exercise-guide" aria-labelledby="guide-title">
         <div class="guide-head">

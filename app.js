@@ -145,7 +145,6 @@ const muscleChoices = document.getElementById("muscle-choices");
 const exerciseTitle = document.getElementById("exercise-title");
 const exerciseCount = document.getElementById("exercise-count");
 const exerciseList = document.getElementById("exercise-list");
-const addExerciseButton = document.getElementById("add-exercise");
 const draftList = document.getElementById("draft-list");
 const draftCount = document.getElementById("draft-count");
 const draftEmpty = document.getElementById("draft-empty");
@@ -183,7 +182,8 @@ function guideButton(name) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "guide-trigger";
-  button.textContent = "See movement";
+  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/></svg><span class="guide-label">Guide</span>';
+  button.title = "See movement";
   button.setAttribute("aria-label", "See how to do " + name);
   button.addEventListener("click", () => openExerciseGuide(name));
   return button;
@@ -306,6 +306,8 @@ function setAppView(view) {
   });
   if (view === "log") renderLog();
   if (view === "history") renderHistory();
+  renderNav();
+  window.scrollTo({ top: 0, behavior: "instant" });
   saveState();
 }
 
@@ -313,6 +315,9 @@ function renderNav() {
   const exerciseCount = state.session ? state.session.exercises.length : 0;
   navCount.textContent = String(exerciseCount);
   navCount.hidden = exerciseCount === 0;
+  const cta = document.getElementById("build-cta");
+  cta.hidden = exerciseCount === 0 || state.appView !== "build";
+  document.getElementById("build-cta-count").textContent = exerciseCount + (exerciseCount === 1 ? " exercise" : " exercises");
 }
 
 function renderMap() {
@@ -416,23 +421,22 @@ function renderExercises() {
     const row = document.createElement("div");
     row.className = "exercise-choice-row";
     const button = document.createElement("button");
-    const chosen = name === state.exercise;
+    const chosen = sessionHasExercise(name);
     button.type = "button";
     button.className = "exercise-option" + (chosen ? " is-selected" : "");
     button.setAttribute("aria-pressed", String(chosen));
     button.innerHTML = '<span class="exercise-number">' + String(index + 1).padStart(2, "0") +
-      '</span><span class="exercise-name"></span><span class="exercise-type">Exercise</span><span class="exercise-check" aria-hidden="true">✓</span>';
+      '</span><span class="exercise-name"></span><span class="exercise-type">Exercise</span><span class="exercise-check" aria-hidden="true">' + (chosen ? "✓" : "+") + '</span>';
     button.querySelector(".exercise-name").textContent = name;
     button.querySelector(".exercise-type").textContent = timedExercises.has(name) ? "Timed" : repsOnlyExercises.has(name) ? "Reps" : "Exercise";
-    button.addEventListener("click", () => {
-      state.exercise = name;
-      renderExercises();
-    });
+    button.addEventListener("click", () => toggleExercise(name));
     row.append(button, guideButton(name));
     exerciseList.append(row);
   });
+}
 
-  addExerciseButton.disabled = !state.exercise;
+function sessionHasExercise(name) {
+  return Boolean(state.session && state.session.exercises.some((item) => item.exercise === name));
 }
 
 function setMuscle(muscle) {
@@ -480,35 +484,25 @@ function renderDraft() {
   renderNav();
 }
 
-function addExercise() {
-  if (!state.exercise) return;
+function toggleExercise(name) {
+  const existing = state.session && state.session.exercises.find((item) => item.exercise === name);
+  if (existing) {
+    if (existing.sets.length) {
+      showToast(name + " has logged sets, so it stays in your workout.");
+      return;
+    }
+    removeExercise(existing.id);
+    showToast(name + " removed.");
+    return;
+  }
   if (!state.session) {
-    state.session = {
-      id: makeId(),
-      startedAt: new Date().toISOString(),
-      workoutDate: state.workoutDate,
-      weightUnit: state.weightUnit,
-      exercises: []
-    };
+    state.session = { id: makeId(), startedAt: new Date().toISOString(), workoutDate: state.workoutDate, weightUnit: state.weightUnit, exercises: [] };
   }
-  const exists = state.session.exercises.some((item) =>
-    item.exercise === state.exercise && item.muscle === muscleLabels[state.muscle]
-  );
-  if (!exists) {
-    state.session.exercises.push({
-      id: makeId(),
-      muscle: muscleLabels[state.muscle],
-      exercise: state.exercise,
-      sets: []
-    });
-    showToast(state.exercise + " added to your workout.");
-  } else {
-    showToast("That exercise is already in your workout.");
-  }
-  state.exercise = "";
+  state.session.exercises.push({ id: makeId(), muscle: muscleLabels[state.muscle], exercise: name, sets: [] });
   saveState();
   renderExercises();
   renderDraft();
+  showToast(name + " added to your workout.");
 }
 
 function removeExercise(id) {
@@ -516,6 +510,7 @@ function removeExercise(id) {
   state.session.exercises = state.session.exercises.filter((item) => item.id !== id);
   if (state.session.exercises.length === 0) state.session = null;
   saveState();
+  renderExercises();
   renderDraft();
 }
 
@@ -581,7 +576,8 @@ function renderRepsForm(item, card) {
   const legend = document.createElement("p");
   legend.className = "set-form-title";
   legend.textContent = "LOG SET " + String(item.sets.length + 1).padStart(2, "0");
-  const reps = createField("Reps in this set", "reps", "number", item.pendingReps ?? "", "1", "numeric");
+  const lastReps = item.sets.length ? item.sets[item.sets.length - 1].reps : "";
+  const reps = createField("Reps in this set", "reps", "number", item.pendingReps ?? lastReps, "1", "numeric");
   reps.input.min = "1";
   reps.input.max = "999";
   if (item.targetReps && reps.input.value === "") reps.input.placeholder = String(item.targetReps);
@@ -858,7 +854,8 @@ function renderLog() {
     fields.className = "set-fields";
     const priorWeight = item.sets.length ? item.sets[item.sets.length - 1].weight : "";
     const weightValue = item.pendingWeight !== undefined ? item.pendingWeight : priorWeight;
-    const repsValue = item.pendingReps !== undefined ? item.pendingReps : "";
+    const priorReps = item.sets.length ? item.sets[item.sets.length - 1].reps : "";
+    const repsValue = item.pendingReps !== undefined ? item.pendingReps : priorReps;
     const weightField = createField("Weight (" + session.weightUnit + ")", "weight", "number", weightValue, "any", "decimal");
     const repsField = createField("Reps", "reps", "number", repsValue, "1", "numeric");
     repsField.input.min = "1";
@@ -1102,7 +1099,8 @@ function renderSelectedDay() {
   note.value = typeof state.dayNotes[day] === "string" ? state.dayNotes[day] : "";
   const count = workoutsForDay(day).length;
   const summary = document.getElementById("selected-day-summary");
-  summary.textContent = count ? count + (count === 1 ? " workout logged" : " workouts logged") : marked ? "Gym visit marked" : "No workout logged for this day";
+  summary.textContent = count ? count + (count === 1 ? " workout logged" : " workouts logged") : marked ? "Gym visit marked" : "";
+  summary.hidden = !summary.textContent;
 }
 
 function renderHistory() {
@@ -1192,36 +1190,6 @@ function finishWorkout() {
   showToast("Workout saved to history.");
 }
 
-function addSelectedExercise() {
-  if (!state.exercise) return;
-  if (!state.session) {
-    state.session = {
-      id: makeId(),
-      startedAt: new Date().toISOString(),
-      workoutDate: state.workoutDate,
-      weightUnit: state.weightUnit,
-      exercises: []
-    };
-  }
-  const exists = state.session.exercises.some((item) =>
-    item.exercise === state.exercise && item.muscle === muscleLabels[state.muscle]
-  );
-  if (!exists) {
-    state.session.exercises.push({
-      id: makeId(),
-      muscle: muscleLabels[state.muscle],
-      exercise: state.exercise,
-      sets: []
-    });
-    showToast(state.exercise + " added to your workout.");
-  } else {
-    showToast("That exercise is already in your workout.");
-  }
-  state.exercise = "";
-  saveState();
-  renderApp();
-}
-
 function renderApp() {
   renderProgress();
   document.getElementById("build-intro").hidden = state.appView !== "build";
@@ -1284,7 +1252,7 @@ document.getElementById("preset-muscle").addEventListener("change", (event) => {
   }
   setMuscle(muscle);
 });
-addExerciseButton.addEventListener("click", addSelectedExercise);
+document.getElementById("build-cta").addEventListener("click", () => setAppView("log"));
 document.getElementById("open-log").addEventListener("click", () => setAppView("log"));
 finishButton.addEventListener("click", finishWorkout);
 
