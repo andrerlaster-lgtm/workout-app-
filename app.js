@@ -83,6 +83,7 @@ const musclesByView = {
 };
 
 const REST_OPTIONS = [0, 30, 60, 90, 120, 180];
+const WEEKDAYS = [["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"], ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"]];
 
 function emptyState() {
   return {
@@ -101,6 +102,9 @@ function emptyState() {
     calendarMonth: localDateKey(new Date()).slice(0, 7),
     manualDays: [],
     dayNotes: {},
+    weekPlan: {},
+    bodyWeights: [],
+    recordsExercise: "",
     session: null,
     history: [],
     savedWorkouts: []
@@ -127,6 +131,14 @@ function loadState() {
       calendarMonth: /^\d{4}-\d{2}$/.test(saved.calendarMonth) && isDateKey(saved.calendarMonth + "-01") ? saved.calendarMonth : localDateKey(new Date()).slice(0, 7),
       manualDays: Array.isArray(saved.manualDays) ? [...new Set(saved.manualDays.filter(isDateKey))] : [],
       dayNotes: saved.dayNotes && typeof saved.dayNotes === "object" && !Array.isArray(saved.dayNotes) ? saved.dayNotes : {},
+      weekPlan: saved.weekPlan && typeof saved.weekPlan === "object" && !Array.isArray(saved.weekPlan)
+        ? Object.fromEntries(Object.entries(saved.weekPlan).filter(([day, id]) => WEEKDAYS.some(([key]) => key === day) && typeof id === "string"))
+        : {},
+      bodyWeights: Array.isArray(saved.bodyWeights)
+        ? saved.bodyWeights.filter((entry) => entry && isDateKey(entry.day) && Number.isFinite(Number(entry.weight)) && Number(entry.weight) > 0 && ["lb", "kg"].includes(entry.unit))
+          .map((entry) => ({ day: entry.day, weight: Number(entry.weight), unit: entry.unit }))
+        : [],
+      recordsExercise: typeof saved.recordsExercise === "string" ? saved.recordsExercise : "",
       session: saved.session && Array.isArray(saved.session.exercises) ? {
         ...saved.session,
         exercises: saved.session.exercises.map((item) => {
@@ -144,6 +156,7 @@ function loadState() {
       history: Array.isArray(saved.history) ? saved.history : [],
       savedWorkouts: Array.isArray(saved.savedWorkouts)
         ? saved.savedWorkouts.filter((workout) => workout && typeof workout.name === "string" && Array.isArray(workout.exercises))
+          .map((workout) => (typeof workout.id === "string" && workout.id ? workout : { ...workout, id: makeId() }))
         : []
     };
   } catch {
@@ -488,6 +501,467 @@ const checkIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l
 const plusIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 const trashIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
 
+// ---------- Last time, next target and personal records ----------
+// Ideas from open-source trackers (MyFit, wger, Flexify, openGym), written fresh:
+// show what you did last time, suggest a next step with the reason, flag records.
+const LB_PER_KG = 2.20462;
+const WEIGHT_STEP = { lb: 5, kg: 2.5 };
+
+function setKind(set, exercise) {
+  if (Number.isInteger(set.durationSeconds) && set.durationSeconds > 0) return "time";
+  if (set.mode === "reps" || !(Number(set.weight) > 0)) return "reps";
+  return "weight";
+}
+
+function estimatedOneRepMax(weight, reps) {
+  return weight * (1 + reps / 30);
+}
+
+// One number per set that goes up when you got better at it.
+function setScore(set, exercise) {
+  const kind = setKind(set, exercise);
+  if (kind === "time") return set.durationSeconds;
+  if (kind === "reps") return Number(set.reps) || 0;
+  return estimatedOneRepMax(Number(set.weight), Number(set.reps) || 0);
+}
+
+// Finished workouts that include this exercise, oldest first.
+function exerciseSessions(name) {
+  const rows = [];
+  state.history.forEach((session) => {
+    if (!Array.isArray(session.exercises)) return;
+    const day = workoutDay(session);
+    session.exercises.forEach((item) => {
+      if (item.exercise !== name || !Array.isArray(item.sets) || item.sets.length === 0) return;
+      rows.push({ day, completedAt: session.completedAt || "", sets: item.sets });
+    });
+  });
+  rows.sort((a, b) => (a.day === b.day ? String(a.completedAt).localeCompare(String(b.completedAt)) : a.day.localeCompare(b.day)));
+  return rows;
+}
+
+function isPersonalRecord(exercise, set, earlierSets) {
+  const kind = setKind(set, exercise);
+  const score = setScore(set, exercise);
+  if (!(score > 0)) return false;
+  let seen = false;
+  let best = 0;
+  const consider = (other) => {
+    if (setKind(other, exercise) !== kind) return;
+    if (kind === "weight" && other.unit !== set.unit) return;
+    seen = true;
+    best = Math.max(best, setScore(other, exercise));
+  };
+  exerciseSessions(exercise).forEach((entry) => entry.sets.forEach(consider));
+  if (!seen) return false; // the first time you do a lift there is nothing to beat yet
+  earlierSets.forEach(consider);
+  return score > best + 0.01;
+}
+
+function cleanNumber(value) {
+  return Number(Number(value).toFixed(2));
+}
+
+// "135 lb × 8, 8, 6 reps · 145 lb × 5 reps"
+function summariseSets(sets, exercise) {
+  const groups = [];
+  sets.forEach((set) => {
+    const kind = setKind(set, exercise);
+    const key = kind === "weight" ? set.weight + " " + set.unit : kind;
+    const value = kind === "time" ? formatDuration(set.durationSeconds) : String(set.reps);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.values.push(value);
+    else groups.push({ key, kind, values: [value] });
+  });
+  return groups.map((group) => {
+    if (group.kind === "weight") return group.key + " × " + group.values.join(", ") + " reps";
+    if (group.kind === "reps") return group.values.join(", ") + " reps";
+    return group.values.join(", ");
+  }).join(" · ");
+}
+
+// What you did last time, and a suggested step with the reason behind it.
+// Rule of thumb for weighted lifts: work up through 8–12 reps, then add weight.
+function nextTarget(exercise, unit) {
+  const sessions = exerciseSessions(exercise);
+  if (sessions.length === 0) return null;
+  const last = sessions[sessions.length - 1];
+  const kind = setKind(last.sets[last.sets.length - 1], exercise);
+  const sets = last.sets.filter((set) => setKind(set, exercise) === kind && (kind !== "weight" || set.unit === unit));
+  const info = { last, kind, prefill: null, suggestion: null };
+  if (sets.length === 0) return info;
+
+  if (kind === "weight") {
+    const top = Math.max(...sets.map((set) => Number(set.weight)));
+    const reps = sets.filter((set) => Number(set.weight) === top).map((set) => Number(set.reps));
+    const minReps = Math.min(...reps);
+    info.prefill = { weight: String(top), reps: String(reps[0]) };
+    if (minReps >= 12) {
+      const weight = cleanNumber(top + WEIGHT_STEP[unit]);
+      info.suggestion = { weight: String(weight), reps: 8, text: weight + " " + unit + " × 8+ reps",
+        why: "Every set at " + top + " " + unit + " reached " + minReps + "+ reps last time, so it's time to go up." };
+    } else if (minReps >= 8) {
+      info.suggestion = { weight: String(top), reps: minReps + 1, text: top + " " + unit + " × " + (minReps + 1) + "+ reps",
+        why: "You did " + reps.join(", ") + " reps at " + top + " " + unit + ". Add a rep before adding weight." };
+    } else {
+      info.suggestion = { weight: String(top), reps: 8, text: top + " " + unit + " × 8+ reps",
+        why: "Build up to 8 reps at " + top + " " + unit + " before going heavier." };
+    }
+  } else if (kind === "reps") {
+    const best = Math.max(...sets.map((set) => Number(set.reps)));
+    info.prefill = { weight: null, reps: String(sets[sets.length - 1].reps) };
+    info.suggestion = { weight: null, reps: best + 1, text: (best + 1) + "+ reps in a set", why: "Your best set last time was " + best + " reps." };
+  } else {
+    const best = Math.max(...sets.map((set) => set.durationSeconds));
+    info.suggestion = { weight: null, reps: null, text: "hold " + formatDuration(best + 5), why: "Your longest hold last time was " + formatDuration(best) + ". Add 5 seconds." };
+  }
+  return info;
+}
+
+function prBadge() {
+  const badge = document.createElement("em");
+  badge.className = "pr-badge";
+  badge.textContent = "PR";
+  badge.title = "Personal record";
+  return badge;
+}
+
+function renderLastTime(card, item, info) {
+  if (!info) return;
+  const box = document.createElement("div");
+  box.className = "last-time";
+  const head = document.createElement("span");
+  head.className = "last-time-head";
+  head.textContent = "LAST TIME · " + formatDate(dateFromKey(info.last.day).toISOString(), { weekday: "short", month: "short", day: "numeric" });
+  const summary = document.createElement("p");
+  summary.className = "last-time-sets";
+  summary.textContent = summariseSets(info.last.sets, item.exercise);
+  box.append(head, summary);
+  if (info.suggestion && item.sets.length === 0) {
+    const row = document.createElement("div");
+    row.className = "next-target";
+    const text = document.createElement("span");
+    const label = document.createElement("small");
+    label.textContent = "TRY";
+    const value = document.createElement("strong");
+    value.textContent = info.suggestion.text;
+    text.append(label, value);
+    row.append(text);
+    if (info.suggestion.weight !== null || info.suggestion.reps !== null) {
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "ghost-button small";
+      use.textContent = "Use";
+      use.setAttribute("aria-label", "Use suggested target for " + item.exercise + ": " + info.suggestion.text);
+      use.addEventListener("click", () => {
+        const active = state.session && state.session.exercises.find((entry) => entry.id === item.id);
+        if (!active) return;
+        if (info.suggestion.weight !== null) active.pendingWeight = info.suggestion.weight;
+        if (info.suggestion.reps !== null) active.pendingReps = String(info.suggestion.reps);
+        saveState();
+        renderLog();
+      });
+      row.append(use);
+    }
+    const why = document.createElement("small");
+    why.className = "next-target-why";
+    why.textContent = info.suggestion.why;
+    box.append(row, why);
+  }
+  card.append(box);
+}
+
+// ---------- Exercise progress: records and charts ----------
+function exerciseRecord(name) {
+  const sessions = exerciseSessions(name);
+  if (sessions.length === 0) return null;
+  const lastSet = sessions[sessions.length - 1].sets[sessions[sessions.length - 1].sets.length - 1];
+  const kind = setKind(lastSet, name);
+  const unit = kind === "weight" ? lastSet.unit : "";
+  const points = [];
+  let runningBest = 0;
+  let best = null;
+  sessions.forEach((entry) => {
+    const usable = entry.sets.filter((set) => setKind(set, name) === kind && (kind !== "weight" || set.unit === unit));
+    if (usable.length === 0) return;
+    const value = Math.max(...usable.map((set) => (kind === "time" ? set.durationSeconds : kind === "reps" ? Number(set.reps) : Number(set.weight))));
+    points.push({ day: entry.day, value, record: points.length > 0 && value > runningBest });
+    runningBest = Math.max(runningBest, value);
+    usable.forEach((set) => {
+      const score = setScore(set, name);
+      if (!best || score > best.score) best = { set, score, day: entry.day };
+    });
+  });
+  return points.length ? { name, kind, unit, points, best } : null;
+}
+
+function shortDay(day) {
+  return formatDate(dateFromKey(day).toISOString(), { month: "short", day: "numeric" });
+}
+
+// A small dependency-free line chart. Orange dots are new highs.
+function renderLineChart(host, points, options) {
+  host.replaceChildren();
+  const NS = "http://www.w3.org/2000/svg";
+  const W = 320, H = 156, left = 40, right = 12, top = 14, bottom = 28;
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  svg.setAttribute("class", "line-chart");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", options.label);
+  const make = (tag, attrs) => {
+    const el = document.createElementNS(NS, tag);
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, String(value)));
+    return el;
+  };
+  const values = points.map((point) => point.value);
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  const flat = dataMin === dataMax;
+  const low = flat ? dataMin - 1 : dataMin - (dataMax - dataMin) * 0.12;
+  const high = flat ? dataMax + 1 : dataMax + (dataMax - dataMin) * 0.12;
+  const x = (index) => (points.length === 1 ? (left + W - right) / 2 : left + (index * (W - left - right)) / (points.length - 1));
+  const y = (value) => top + (1 - (value - low) / (high - low)) * (H - top - bottom);
+  const guides = flat ? [dataMax] : [dataMax, dataMin];
+  guides.forEach((value) => {
+    svg.append(make("line", { x1: left, x2: W - right, y1: y(value), y2: y(value), class: "chart-grid" }));
+    const text = make("text", { x: left - 6, y: y(value) + 3.5, class: "chart-text", "text-anchor": "end" });
+    text.textContent = options.format(value);
+    svg.append(text);
+  });
+  if (points.length > 1) {
+    svg.append(make("polyline", { points: points.map((point, index) => x(index) + "," + y(point.value)).join(" "), class: "chart-line" }));
+  }
+  points.forEach((point, index) => {
+    const dot = make("circle", { cx: x(index), cy: y(point.value), r: 4, class: "chart-dot" + (point.record ? " is-record" : "") });
+    const title = document.createElementNS(NS, "title");
+    title.textContent = shortDay(point.day) + " · " + options.format(point.value) + (point.record ? " · new high" : "");
+    dot.append(title);
+    svg.append(dot);
+  });
+  const first = make("text", { x: left, y: H - 8, class: "chart-text", "text-anchor": "start" });
+  first.textContent = shortDay(points[0].day);
+  svg.append(first);
+  if (points.length > 1) {
+    const lastText = make("text", { x: W - right, y: H - 8, class: "chart-text", "text-anchor": "end" });
+    lastText.textContent = shortDay(points[points.length - 1].day);
+    svg.append(lastText);
+  }
+  host.append(svg);
+}
+
+function recordText(record) {
+  const set = record.best.set;
+  if (record.kind === "time") return formatDuration(set.durationSeconds);
+  if (record.kind === "reps") return set.reps + " reps";
+  return set.weight + " " + set.unit + " × " + set.reps;
+}
+
+function renderRecords() {
+  const names = [...new Set(state.history.flatMap((session) => (Array.isArray(session.exercises) ? session.exercises.filter((item) => item.sets && item.sets.length).map((item) => item.exercise) : [])))];
+  const empty = document.getElementById("records-empty");
+  const body = document.getElementById("records-body");
+  empty.hidden = names.length > 0;
+  body.hidden = names.length === 0;
+  if (names.length === 0) return;
+  const recent = new Map();
+  state.history.forEach((session, order) => (session.exercises || []).forEach((item) => recent.set(item.exercise, workoutDay(session) + String(order).padStart(6, "0"))));
+  names.sort((a, b) => String(recent.get(b)).localeCompare(String(recent.get(a))));
+  if (!names.includes(state.recordsExercise)) state.recordsExercise = names[0];
+
+  const select = document.getElementById("records-exercise");
+  select.replaceChildren(...names.map((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    return option;
+  }));
+  select.value = state.recordsExercise;
+
+  const record = exerciseRecord(state.recordsExercise);
+  const chart = document.getElementById("records-chart");
+  const stats = document.getElementById("records-stats");
+  stats.replaceChildren();
+  if (!record) { chart.replaceChildren(); return; }
+  const unitLabel = record.kind === "weight" ? " " + record.unit : record.kind === "reps" ? " reps" : "";
+  const format = record.kind === "time" ? (value) => formatDuration(value) : (value) => String(cleanNumber(value));
+  const metric = record.kind === "weight" ? "Top weight per workout (" + record.unit + ")" : record.kind === "reps" ? "Best set per workout (reps)" : "Longest hold per workout";
+  document.getElementById("records-metric").textContent = metric;
+  renderLineChart(chart, record.points.slice(-30), { format, label: record.name + ": " + metric });
+
+  const addStat = (label, value, detail) => {
+    const box = document.createElement("div");
+    box.className = "progress-stat";
+    const labelEl = document.createElement("span");
+    labelEl.textContent = label;
+    const valueEl = document.createElement("strong");
+    valueEl.textContent = value;
+    const detailEl = document.createElement("small");
+    detailEl.textContent = detail;
+    box.append(labelEl, valueEl, detailEl);
+    stats.append(box);
+  };
+  addStat("BEST SET", recordText(record), shortDay(record.best.day));
+  if (record.kind === "weight") {
+    const oneRm = estimatedOneRepMax(Number(record.best.set.weight), Number(record.best.set.reps));
+    addStat("EST. 1 REP MAX", cleanNumber(oneRm) + " " + record.unit, "Estimated from your best set");
+  }
+  const firstValue = record.points[0].value;
+  const lastValue = record.points[record.points.length - 1].value;
+  const change = cleanNumber(lastValue - firstValue);
+  addStat("SINCE FIRST", record.points.length < 2 ? "—" : (change > 0 ? "+" : "") + (record.kind === "time" ? change + " sec" : change + unitLabel),
+    record.points.length < 2 ? "Repeat it to see a trend" : "Latest vs first workout");
+  addStat("WORKOUTS", String(record.points.length), "logged for " + record.name);
+
+  const list = document.getElementById("records-list");
+  list.replaceChildren();
+  names.slice().sort((a, b) => a.localeCompare(b)).forEach((name) => {
+    const rec = exerciseRecord(name);
+    if (!rec) return;
+    const row = document.createElement("li");
+    const label = document.createElement("span");
+    label.textContent = name;
+    const value = document.createElement("strong");
+    value.textContent = recordText(rec);
+    const when = document.createElement("small");
+    when.textContent = shortDay(rec.best.day);
+    row.append(label, value, when);
+    list.append(row);
+  });
+}
+
+// ---------- Weekly plan ----------
+function todayPlanKey() {
+  return ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date().getDay()];
+}
+
+function plannedWorkout(key) {
+  const id = state.weekPlan[key];
+  return id ? state.savedWorkouts.find((workout) => workout.id === id) || null : null;
+}
+
+function renderPlan() {
+  const list = document.getElementById("plan-list");
+  list.replaceChildren();
+  const hasSaved = state.savedWorkouts.length > 0;
+  document.getElementById("plan-empty").hidden = hasSaved;
+  list.hidden = !hasSaved;
+  const todayKey = todayPlanKey();
+  WEEKDAYS.forEach(([key, name]) => {
+    const row = document.createElement("li");
+    row.className = "plan-row" + (key === todayKey ? " is-today" : "");
+    const label = document.createElement("label");
+    label.setAttribute("for", "plan-" + key);
+    label.textContent = name;
+    if (key === todayKey) {
+      const pill = document.createElement("small");
+      pill.textContent = "Today";
+      label.append(pill);
+    }
+    const select = document.createElement("select");
+    select.id = "plan-" + key;
+    select.className = "unit-select";
+    const rest = document.createElement("option");
+    rest.value = "";
+    rest.textContent = "Rest / nothing planned";
+    select.append(rest);
+    state.savedWorkouts.forEach((workout) => {
+      const option = document.createElement("option");
+      option.value = workout.id;
+      option.textContent = workout.name;
+      select.append(option);
+    });
+    select.value = plannedWorkout(key) ? state.weekPlan[key] : "";
+    select.addEventListener("change", () => {
+      if (select.value) state.weekPlan[key] = select.value;
+      else delete state.weekPlan[key];
+      saveState();
+      renderPlan();
+    });
+    row.append(label, select);
+    list.append(row);
+  });
+
+  const card = document.getElementById("today-plan");
+  const planned = plannedWorkout(todayKey);
+  const inProgress = Boolean(state.session && state.session.exercises.length);
+  card.hidden = !planned || inProgress;
+  if (!card.hidden) {
+    const done = workoutsForDay(localDateKey(new Date())).length > 0;
+    document.getElementById("today-plan-title").textContent = planned.name;
+    document.getElementById("today-plan-detail").textContent = done ? "Workout logged today — nice work." : plural(planned.exercises.length, "exercise") + " planned";
+    const start = document.getElementById("today-plan-start");
+    start.hidden = done;
+    start.onclick = () => startSavedWorkout(planned);
+  }
+}
+
+// ---------- Body weight ----------
+function bodyWeightIn(entry, unit) {
+  if (entry.unit === unit) return entry.weight;
+  return unit === "kg" ? entry.weight / LB_PER_KG : entry.weight * LB_PER_KG;
+}
+
+function renderBodyWeight() {
+  const unit = state.weightUnit;
+  document.getElementById("weight-unit-label").textContent = unit;
+  const entries = state.bodyWeights.slice().sort((a, b) => a.day.localeCompare(b.day));
+  const empty = document.getElementById("weight-empty");
+  const chart = document.getElementById("weight-chart");
+  const latestEl = document.getElementById("weight-latest");
+  document.getElementById("weight-remove").hidden = entries.length === 0;
+  empty.hidden = entries.length > 0;
+  chart.hidden = entries.length === 0;
+  if (entries.length === 0) {
+    latestEl.textContent = "";
+    chart.replaceChildren();
+    return;
+  }
+  const values = entries.map((entry) => bodyWeightIn(entry, unit));
+  const latest = values[values.length - 1];
+  let text = latest.toFixed(1) + " " + unit;
+  if (values.length > 1) {
+    const change = latest - values[values.length - 2];
+    text += " · " + (change > 0 ? "+" : change < 0 ? "−" : "") + Math.abs(change).toFixed(1) + " vs last";
+  }
+  latestEl.textContent = text;
+  const shown = entries.slice(-30).map((entry) => ({ day: entry.day, value: bodyWeightIn(entry, unit), record: false }));
+  renderLineChart(chart, shown, { format: (value) => value.toFixed(1), label: "Body weight over time in " + unit });
+}
+
+function logBodyWeight(event) {
+  event.preventDefault();
+  const input = document.getElementById("weight-input");
+  const error = document.getElementById("weight-error");
+  const value = Number(input.value);
+  if (!Number.isFinite(value) || value <= 0 || value > 1000) {
+    error.textContent = "Enter your weight as a number, for example 175.4.";
+    error.hidden = false;
+    input.focus();
+    return;
+  }
+  error.hidden = true;
+  const before = state.bodyWeights.map((entry) => ({ ...entry }));
+  const today = localDateKey(new Date());
+  state.bodyWeights = state.bodyWeights.filter((entry) => entry.day !== today);
+  state.bodyWeights.push({ day: today, weight: Number(value.toFixed(1)), unit: state.weightUnit });
+  input.value = "";
+  saveState();
+  renderBodyWeight();
+  showToast("Body weight logged.", { label: "Undo", run: () => { state.bodyWeights = before; saveState(); renderBodyWeight(); } });
+}
+
+function removeLatestBodyWeight() {
+  if (state.bodyWeights.length === 0) return;
+  const before = state.bodyWeights.map((entry) => ({ ...entry }));
+  const sorted = state.bodyWeights.slice().sort((a, b) => a.day.localeCompare(b.day));
+  const latest = sorted[sorted.length - 1];
+  state.bodyWeights = state.bodyWeights.filter((entry) => entry !== state.bodyWeights.find((candidate) => candidate.day === latest.day));
+  saveState();
+  renderBodyWeight();
+  showToast("Latest weight removed.", { label: "Undo", run: () => { state.bodyWeights = before; saveState(); renderBodyWeight(); } });
+}
+
 function renderHome() {
   document.getElementById("home-date").textContent = formatDate(new Date().toISOString(), { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("home-saved").textContent = String(state.savedWorkouts.length);
@@ -532,6 +1006,8 @@ function renderHome() {
     item.append(start, remove);
     list.append(item);
   });
+  renderPlan();
+  renderBodyWeight();
 }
 
 function setAppView(view) {
@@ -828,13 +1304,13 @@ function updateFinishState() {
     : "Log at least one set to finish.";
 }
 
-function renderRepsForm(item, card) {
+function renderRepsForm(item, card, info) {
   const form = document.createElement("form");
   form.className = "set-form reps-set-form";
   const legend = document.createElement("p");
   legend.className = "set-form-title";
   legend.textContent = "LOG SET " + String(item.sets.length + 1).padStart(2, "0");
-  const lastReps = item.sets.length ? item.sets[item.sets.length - 1].reps : "";
+  const lastReps = item.sets.length ? item.sets[item.sets.length - 1].reps : (info && info.prefill ? info.prefill.reps : "");
   const reps = createField("Reps in this set", "reps", "number", item.pendingReps ?? lastReps, "1", "numeric");
   reps.input.min = "1";
   reps.input.max = "999";
@@ -866,12 +1342,14 @@ function renderRepsForm(item, card) {
       return;
     }
     const setNumber = item.sets.length + 1;
-    item.sets.push({ mode: "reps", reps: count, loggedAt: new Date().toISOString() });
+    const newSet = { mode: "reps", reps: count, loggedAt: new Date().toISOString() };
+    if (isPersonalRecord(item.exercise, newSet, item.sets)) newSet.pr = true;
+    item.sets.push(newSet);
     delete item.pendingReps;
     saveState();
     renderLog();
     renderDraft();
-    showToast("Set " + String(setNumber).padStart(2, "0") + " saved.");
+    showToast("Set " + String(setNumber).padStart(2, "0") + " saved" + (newSet.pr ? " · new personal record" : "") + ".");
     startRest();
   });
   card.append(form);
@@ -982,13 +1460,15 @@ function renderTimedForm(item, card) {
       return;
     }
     const setNumber = item.sets.length + 1;
-    item.sets.push({ durationSeconds: seconds, loggedAt: new Date().toISOString() });
+    const timedSet = { durationSeconds: seconds, loggedAt: new Date().toISOString() };
+    if (isPersonalRecord(item.exercise, timedSet, item.sets)) timedSet.pr = true;
+    item.sets.push(timedSet);
     delete item.timerStartedAt;
     delete item.pendingSeconds;
     saveState();
     renderLog();
     renderDraft();
-    showToast("Timed set " + String(setNumber).padStart(2, "0") + " saved.");
+    showToast("Timed set " + String(setNumber).padStart(2, "0") + " saved" + (timedSet.pr ? " · new personal record" : "") + ".");
     startRest();
   });
   refresh();
@@ -1124,6 +1604,7 @@ function renderLog() {
     if (item.targetReps) subtitle.textContent += " · Target " + item.targetReps + " reps × " + item.targetSets + " rounds";
     headingGroup.append(title, subtitle);
     header.append(headingGroup, guideButton(item.exercise));
+    const info = nextTarget(item.exercise, session.weightUnit);
 
     const setHeader = document.createElement("div");
     setHeader.className = "set-list-heading";
@@ -1133,7 +1614,9 @@ function renderLog() {
     setCount.className = "set-count";
     setCount.textContent = String(item.sets.length);
     setHeader.append(setHeading, setCount);
-    card.append(header, setHeader);
+    card.append(header);
+    renderLastTime(card, item, info);
+    card.append(setHeader);
 
     if (item.sets.length === 0) {
       const empty = document.createElement("p");
@@ -1150,6 +1633,7 @@ function renderLog() {
         setLabel.textContent = "SET " + String(index + 1).padStart(2, "0");
         const value = document.createElement("strong");
         value.textContent = formatLoggedSet(set, item.exercise);
+        if (set.pr) value.append(prBadge());
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "remove-set";
@@ -1176,7 +1660,7 @@ function renderLog() {
       return;
     }
     if (repsOnlyExercises.has(item.exercise)) {
-      renderRepsForm(item, card);
+      renderRepsForm(item, card, info);
       logSession.append(card);
       return;
     }
@@ -1188,9 +1672,9 @@ function renderLog() {
     legend.textContent = "LOG SET " + String(item.sets.length + 1).padStart(2, "0");
     const fields = document.createElement("div");
     fields.className = "set-fields";
-    const priorWeight = item.sets.length ? item.sets[item.sets.length - 1].weight : "";
+    const priorWeight = item.sets.length ? item.sets[item.sets.length - 1].weight : (info && info.prefill && info.prefill.weight !== null ? info.prefill.weight : "");
     const weightValue = item.pendingWeight !== undefined ? item.pendingWeight : priorWeight;
-    const priorReps = item.sets.length ? item.sets[item.sets.length - 1].reps : "";
+    const priorReps = item.sets.length ? item.sets[item.sets.length - 1].reps : (info && info.prefill ? info.prefill.reps : "");
     const repsValue = item.pendingReps !== undefined ? item.pendingReps : priorReps;
     const weightField = createField("Weight (" + session.weightUnit + ")", "weight", "number", weightValue, "any", "decimal");
     const repsField = createField("Reps", "reps", "number", repsValue, "1", "numeric");
@@ -1235,19 +1719,21 @@ function renderLog() {
       }
       const activeItem = state.session.exercises.find((exercise) => exercise.id === item.id);
       const setNumber = activeItem.sets.length + 1;
-      activeItem.sets.push({
+      const newSet = {
         weight: String(weightNumber),
         reps: repsNumber,
         unit: state.session.weightUnit,
         loggedAt: new Date().toISOString()
-      });
+      };
+      if (isPersonalRecord(activeItem.exercise, newSet, activeItem.sets)) newSet.pr = true;
+      activeItem.sets.push(newSet);
       delete activeItem.pendingWeight;
       delete activeItem.pendingReps;
       saveState();
       renderLog();
       renderDraft();
-      showToast("Set " + String(setNumber).padStart(2, "0") + " saved.");
-    startRest();
+      showToast("Set " + String(setNumber).padStart(2, "0") + " saved" + (newSet.pr ? " · new personal record" : "") + ".");
+      startRest();
     });
     card.append(form);
     logSession.append(card);
@@ -1444,6 +1930,7 @@ function renderSelectedDay() {
 
 function renderHistory() {
   renderProgress();
+  renderRecords();
   renderCalendar();
   renderSelectedDay();
   historyList.replaceChildren();
@@ -1512,6 +1999,7 @@ function renderHistory() {
       item.sets.forEach((set, index) => {
         const row = document.createElement("li");
         row.textContent = "Set " + (index + 1) + " · " + formatLoggedSet(set, item.exercise);
+        if (set.pr) row.append(" ", prBadge());
         sets.append(row);
       });
       exercise.append(exerciseHeading, sets);
@@ -1682,12 +2170,20 @@ unitSelect.addEventListener("change", () => {
     state.session.weightUnit = state.weightUnit;
   }
   saveState();
+  renderBodyWeight();
   if (state.appView === "log") renderLog();
 });
 
 document.getElementById("close-guide").addEventListener("click", () => document.getElementById("exercise-guide").close());
 document.getElementById("exercise-guide").addEventListener("click", (event) => {
   if (event.target === event.currentTarget) event.currentTarget.close();
+});
+document.getElementById("weight-form").addEventListener("submit", logBodyWeight);
+document.getElementById("weight-remove").addEventListener("click", removeLatestBodyWeight);
+document.getElementById("records-exercise").addEventListener("change", (event) => {
+  state.recordsExercise = event.target.value;
+  saveState();
+  renderRecords();
 });
 renderSpecialGuideButtons();
 document.getElementById("special-level").value = String(state.specialRounds);

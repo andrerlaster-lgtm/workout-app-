@@ -44,10 +44,32 @@
             <button type="button" id="resume-open" class="resume-open">Continue <span aria-hidden="true">→</span></button>
           </div>
         </div>
+        <div id="today-plan" class="resume-card today-plan" hidden>
+          <div class="resume-copy"><span class="section-kicker">Planned for today</span><strong id="today-plan-title"></strong><span id="today-plan-detail"></span></div>
+          <div class="resume-actions"><button type="button" id="today-plan-start" class="resume-open">Start <span aria-hidden="true">→</span></button></div>
+        </div>
         <section class="saved-section" aria-labelledby="saved-heading">
           <div class="saved-head"><h2 id="saved-heading">Saved workouts</h2><span class="saved-hint">Start one in a tap</span></div>
           <ul id="saved-list" class="saved-list"></ul>
           <p id="saved-empty" class="saved-empty">Nothing saved yet. Build a workout, then tap <strong>Save for later</strong> in the Log.</p>
+        </section>
+        <section class="saved-section plan-section" aria-labelledby="plan-heading">
+          <div class="saved-head"><h2 id="plan-heading">Weekly plan</h2><span class="saved-hint">Pick a saved workout for each day</span></div>
+          <ul id="plan-list" class="plan-list"></ul>
+          <p id="plan-empty" class="saved-empty">Save a workout first, then plan which day you'll do it.</p>
+        </section>
+        <section class="saved-section weight-section" aria-labelledby="weight-heading">
+          <div class="saved-head"><h2 id="weight-heading">Body weight</h2><span id="weight-latest" class="saved-hint"></span></div>
+          <form id="weight-form" class="weight-form" novalidate>
+            <label for="weight-input" class="visually-hidden">Today's body weight</label>
+            <input id="weight-input" class="set-input" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Today's weight" autocomplete="off">
+            <span id="weight-unit-label" class="weight-unit-label">lb</span>
+            <button type="submit" class="finish-button">Log</button>
+            <button type="button" id="weight-remove" class="ghost-button small" hidden>Remove latest</button>
+          </form>
+          <p id="weight-error" class="field-error" role="alert" hidden></p>
+          <div id="weight-chart" class="chart-wrap" hidden></div>
+          <p id="weight-empty" class="saved-empty">Log your weight when you like. A chart appears after the first entry.</p>
         </section>
       </section>
       <section id="build-workspace" class="workspace app-view" aria-label="Workout builder">
@@ -190,6 +212,18 @@
             <div class="progress-stat"><span>AVG SETS / WORKOUT</span><strong id="progress-sets">—</strong><small id="progress-sets-detail"></small></div>
           </div>
           <p id="progress-message" class="progress-message"></p>
+        </section>
+        <section class="progress-panel records-panel" aria-labelledby="records-heading">
+          <div class="progress-heading"><h2 id="records-heading">Exercise progress</h2></div>
+          <p id="records-empty" class="saved-empty">Finish a workout and each exercise's records and chart appear here.</p>
+          <div id="records-body" hidden>
+            <label class="weekly-goal-control" for="records-exercise">Exercise <select id="records-exercise"></select></label>
+            <p id="records-metric" class="records-metric"></p>
+            <div id="records-chart" class="chart-wrap"></div>
+            <p class="chart-key"><i class="chart-key-dot"></i> New high</p>
+            <div id="records-stats" class="progress-stats"></div>
+            <details class="records-all"><summary>All personal records</summary><ul id="records-list" class="records-list"></ul></details>
+          </div>
         </section>
         <div class="calendar-panel" aria-label="Training calendar">
           <div class="calendar-toolbar">

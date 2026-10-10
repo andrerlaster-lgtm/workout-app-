@@ -22,6 +22,12 @@ A phone-first workout app for finding exercises by muscle group and recording gy
 - Finish a workout and review completed sessions in History. Exercises with no logged sets are left out of the saved session.
 - Use the training calendar to see workout days, choose the day for a workout, mark gym visits without a session, and save short day notes.
 - See training days, progress toward the next milestone, a configurable weekly goal, the largest same-unit lift gain and bodyweight rep gain against each exercise's first logged workout, and recent average sets per workout. The gym lighting and body-map glow change after 5, 15, and 30 training days as visual milestones.
+- **Last time:** each exercise in the Log shows what you did in your previous workout, and pre-fills the weight and reps from it.
+- **Next target:** weighted lifts get a suggested next step with the reason: work up through 8–12 reps, then add 5 lb (2.5 kg). Bodyweight exercises suggest one more rep; holds suggest 5 more seconds. Tap **Use** to fill the form.
+- **Personal records:** a set that beats your previous best (by estimated one-rep max, reps or hold time) is marked **PR** in the Log and in History.
+- **Exercise progress** (History): pick an exercise to see a chart of your top weight per workout, your best set, estimated 1RM, and a list of every personal record.
+- **Weekly plan** (Home): choose a saved workout for each weekday. Today's plan appears as a card with a one-tap Start.
+- **Body weight** (Home): log your weight and see a chart and the change since last time. Undo is available.
 - Save the active workout and workout history in this browser's local storage.
 
 Workout data stays on the device and browser where it was entered. It does not sync between devices or browsers.
