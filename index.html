@@ -51,26 +51,31 @@
         <section class="saved-section" aria-labelledby="saved-heading">
           <div class="saved-head"><h2 id="saved-heading">Saved workouts</h2><span class="saved-hint">Start one in a tap</span></div>
           <ul id="saved-list" class="saved-list"></ul>
+          <button type="button" id="saved-more" class="ghost-button small saved-more" hidden></button>
           <p id="saved-empty" class="saved-empty">Nothing saved yet. Build a workout, then tap <strong>Save for later</strong> in the Log.</p>
         </section>
-        <section class="saved-section plan-section" aria-labelledby="plan-heading">
-          <div class="saved-head"><h2 id="plan-heading">Weekly plan</h2><span class="saved-hint">Pick a saved workout for each day</span></div>
-          <ul id="plan-list" class="plan-list"></ul>
-          <p id="plan-empty" class="saved-empty">Save a workout first, then plan which day you'll do it.</p>
-        </section>
-        <section class="saved-section weight-section" aria-labelledby="weight-heading">
-          <div class="saved-head"><h2 id="weight-heading">Body weight</h2><span id="weight-latest" class="saved-hint"></span></div>
-          <form id="weight-form" class="weight-form" novalidate>
-            <label for="weight-input" class="visually-hidden">Today's body weight</label>
-            <input id="weight-input" class="set-input" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Today's weight" autocomplete="off">
-            <span id="weight-unit-label" class="weight-unit-label">lb</span>
-            <button type="submit" class="finish-button">Log</button>
-            <button type="button" id="weight-remove" class="ghost-button small" hidden>Remove latest</button>
-          </form>
-          <p id="weight-error" class="field-error" role="alert" hidden></p>
-          <div id="weight-chart" class="chart-wrap" hidden></div>
-          <p id="weight-empty" class="saved-empty">Log your weight when you like. A chart appears after the first entry.</p>
-        </section>
+        <details class="fold home-fold plan-section" data-fold="plan">
+          <summary><h2 id="plan-heading" class="fold-title">Weekly plan</h2><span id="plan-summary" class="fold-hint"></span></summary>
+          <div class="fold-body">
+            <ul id="plan-list" class="plan-list"></ul>
+            <p id="plan-empty" class="saved-empty">Save a workout first, then plan which day you'll do it.</p>
+          </div>
+        </details>
+        <details class="fold home-fold weight-section" data-fold="weight">
+          <summary><h2 id="weight-heading" class="fold-title">Body weight</h2><span id="weight-latest" class="fold-hint"></span></summary>
+          <div class="fold-body">
+            <form id="weight-form" class="weight-form" novalidate>
+              <label for="weight-input" class="visually-hidden">Today's body weight</label>
+              <input id="weight-input" class="set-input" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Today's weight" autocomplete="off">
+              <span id="weight-unit-label" class="weight-unit-label">lb</span>
+              <button type="submit" class="finish-button">Log</button>
+              <button type="button" id="weight-remove" class="ghost-button small" hidden>Remove latest</button>
+            </form>
+            <p id="weight-error" class="field-error" role="alert" hidden></p>
+            <div id="weight-chart" class="chart-wrap" hidden></div>
+            <p id="weight-empty" class="saved-empty">Log your weight when you like. A chart appears after the first entry.</p>
+          </div>
+        </details>
       </section>
       <section id="build-workspace" class="workspace app-view" aria-label="Workout builder">
         <div class="panel map-panel">
@@ -103,23 +108,27 @@
             <h2 id="exercise-title">Chest</h2>
             <span id="exercise-count" class="count-pill">3 MOVES</span>
           </div>
-          <section class="preset-panel" aria-labelledby="preset-heading">
-            <h3 id="preset-heading">Start with a body part</h3>
-            <label for="preset-muscle">Choose a workout</label>
-            <select id="preset-muscle" class="unit-select"></select>
-            <p class="preset-description">Load an exercise list, then log your own weights, reps, and sets.</p>
-            <ul id="preset-exercises" class="preset-exercises"></ul>
-            <button type="button" id="load-preset" class="draft-open">Load workout</button>
-            <p class="preset-description">Adds to your current workout. Exercises already added are skipped.</p>
-          </section>
+          <details class="preset-panel fold" data-fold="preset">
+            <summary><h3 id="preset-heading" class="fold-title">Start with a body part</h3><span class="fold-hint">Load a ready-made list</span></summary>
+            <div class="fold-body">
+              <label for="preset-muscle">Choose a workout</label>
+              <select id="preset-muscle" class="unit-select"></select>
+              <p class="preset-description">Load an exercise list, then log your own weights, reps, and sets.</p>
+              <ul id="preset-exercises" class="preset-exercises"></ul>
+              <button type="button" id="load-preset" class="draft-open">Load workout</button>
+              <p class="preset-description">Adds to your current workout. Exercises already added are skipped.</p>
+            </div>
+          </details>
           <p id="exercise-subtitle" class="exercise-subtitle">Tap an exercise to add it. Tap again to remove it.</p>
           <div id="exercise-list" class="exercise-list"></div>
-          <div class="workout-draft">
-            <div class="draft-heading"><span>YOUR WORKOUT</span><span id="draft-count">0</span></div>
-            <p id="draft-empty" class="draft-empty">Exercises you add will show up here.</p>
-            <ul id="draft-list" class="draft-list"></ul>
-            <button type="button" id="open-log" class="draft-open">Open workout log <span aria-hidden="true">→</span></button>
-          </div>
+          <details class="workout-draft fold" data-fold="draft">
+            <summary><h3 class="fold-title">Your workout</h3><span id="draft-count" class="fold-hint">Empty</span></summary>
+            <div class="fold-body">
+              <p id="draft-empty" class="draft-empty">Exercises you add will show up here.</p>
+              <ul id="draft-list" class="draft-list"></ul>
+              <button type="button" id="open-log" class="draft-open">Open workout log <span aria-hidden="true">→</span></button>
+            </div>
+          </details>
         </aside>
       </section>
 
@@ -128,26 +137,31 @@
           <h1 id="log-heading" tabindex="-1">One set at a time.</h1>
           <p class="intro-copy">Log weighted sets, bodyweight reps, or timed holds. Your workout saves on this device.</p>
         </div>
-        <div class="log-toolbar">
-          <div class="toolbar-field"><label for="weight-unit">Weight unit</label>
-          <select id="weight-unit" class="unit-select">
-            <option value="lb">Pounds (lb)</option>
-            <option value="kg">Kilograms (kg)</option>
-          </select></div>
-          <div class="toolbar-field"><label for="workout-date">Workout day</label>
-          <input id="workout-date" class="unit-select workout-date-input" type="date" aria-describedby="workout-date-hint"></div>
-          <div class="toolbar-field"><label for="rest-length">Rest timer</label>
-          <select id="rest-length" class="unit-select">
-            <option value="0">Off</option>
-            <option value="30">30 sec</option>
-            <option value="60">1 min</option>
-            <option value="90">1 min 30</option>
-            <option value="120">2 min</option>
-            <option value="180">3 min</option>
-          </select></div>
-          <span class="local-save-label"><span class="live-dot"></span> SAVED ON THIS DEVICE</span>
-        </div>
-        <p id="workout-date-hint" class="date-hint">Choose the day this workout should appear on your calendar.</p>
+        <details class="fold log-options" data-fold="logOptions">
+          <summary><h2 class="fold-title">Workout options</h2><span id="log-options-summary" class="fold-hint"></span></summary>
+          <div class="fold-body">
+            <div class="log-toolbar">
+              <div class="toolbar-field"><label for="weight-unit">Weight unit</label>
+              <select id="weight-unit" class="unit-select">
+                <option value="lb">Pounds (lb)</option>
+                <option value="kg">Kilograms (kg)</option>
+              </select></div>
+              <div class="toolbar-field"><label for="workout-date">Workout day</label>
+              <input id="workout-date" class="unit-select workout-date-input" type="date" aria-describedby="workout-date-hint"></div>
+              <div class="toolbar-field"><label for="rest-length">Rest timer</label>
+              <select id="rest-length" class="unit-select">
+                <option value="0">Off</option>
+                <option value="30">30 sec</option>
+                <option value="60">1 min</option>
+                <option value="90">1 min 30</option>
+                <option value="120">2 min</option>
+                <option value="180">3 min</option>
+              </select></div>
+              <span class="local-save-label"><span class="live-dot"></span> SAVED ON THIS DEVICE</span>
+            </div>
+            <p id="workout-date-hint" class="date-hint">Choose the day this workout should appear on your calendar.</p>
+          </div>
+        </details>
         <div id="log-session" class="log-session"></div>
         <div class="finish-row">
           <p id="finish-hint" class="finish-hint">Log at least one set to finish.</p>
@@ -199,32 +213,32 @@
           <h1 id="history-heading" tabindex="-1">Training calendar.</h1>
           <p class="intro-copy">See workout days and mark gym visits. Your calendar saves in this browser on this device.</p>
         </div>
-        <section class="progress-panel" aria-labelledby="progress-heading">
-          <div class="progress-heading"><h2 id="progress-heading">Training progress</h2><span id="progress-stage" class="progress-stage"></span></div>
-          <div class="progress-count"><strong id="progress-days">0</strong><span>training days logged</span></div>
-          <div id="progress-track" class="progress-track" role="progressbar" aria-label="Training days toward the next milestone" aria-valuemin="0" aria-valuenow="0" aria-valuemax="5"><span id="progress-fill"></span></div>
-          <p id="progress-next" class="progress-next"></p>
-          <label class="weekly-goal-control" for="weekly-goal">Weekly goal <select id="weekly-goal"><option value="1">1 day</option><option value="2">2 days</option><option value="3">3 days</option><option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option><option value="7">7 days</option></select></label>
-          <div class="progress-stats">
-            <div class="progress-stat"><span>THIS WEEK</span><strong id="progress-week">0 / 3 days</strong><small id="progress-week-detail"></small></div>
-            <div class="progress-stat"><span>BEST LIFT GAIN</span><strong id="progress-lift">—</strong><small id="progress-lift-detail"></small></div>
-            <div class="progress-stat"><span>BEST REP GAIN</span><strong id="progress-reps">—</strong><small id="progress-reps-detail"></small></div>
-            <div class="progress-stat"><span>AVG SETS / WORKOUT</span><strong id="progress-sets">—</strong><small id="progress-sets-detail"></small></div>
+        <details class="progress-panel fold" data-fold="progress">
+          <summary><h2 id="progress-heading" class="fold-title">Training progress</h2><span id="progress-summary" class="fold-hint"></span></summary>
+          <div class="fold-body">
+            <div class="progress-heading"><span id="progress-stage" class="progress-stage"></span></div>
+            <div class="progress-count"><strong id="progress-days">0</strong><span>training days logged</span></div>
+            <div id="progress-track" class="progress-track" role="progressbar" aria-label="Training days toward the next milestone" aria-valuemin="0" aria-valuenow="0" aria-valuemax="5"><span id="progress-fill"></span></div>
+            <p id="progress-next" class="progress-next"></p>
+            <label class="weekly-goal-control" for="weekly-goal">Weekly goal <select id="weekly-goal"><option value="1">1 day</option><option value="2">2 days</option><option value="3">3 days</option><option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option><option value="7">7 days</option></select></label>
+            <div class="progress-stats">
+              <div class="progress-stat"><span>THIS WEEK</span><strong id="progress-week">0 / 3 days</strong><small id="progress-week-detail"></small></div>
+              <div class="progress-stat"><span>BEST LIFT GAIN</span><strong id="progress-lift">—</strong><small id="progress-lift-detail"></small></div>
+              <div class="progress-stat"><span>BEST REP GAIN</span><strong id="progress-reps">—</strong><small id="progress-reps-detail"></small></div>
+              <div class="progress-stat"><span>AVG SETS / WORKOUT</span><strong id="progress-sets">—</strong><small id="progress-sets-detail"></small></div>
+            </div>
+            <p id="progress-message" class="progress-message"></p>
           </div>
-          <p id="progress-message" class="progress-message"></p>
-        </section>
-        <section class="progress-panel records-panel" aria-labelledby="records-heading">
-          <div class="progress-heading"><h2 id="records-heading">Exercise progress</h2></div>
-          <p id="records-empty" class="saved-empty">Finish a workout and each exercise's records and chart appear here.</p>
-          <div id="records-body" hidden>
-            <label class="weekly-goal-control" for="records-exercise">Exercise <select id="records-exercise"></select></label>
-            <p id="records-metric" class="records-metric"></p>
-            <div id="records-chart" class="chart-wrap"></div>
-            <p class="chart-key"><i class="chart-key-dot"></i> New high</p>
-            <div id="records-stats" class="progress-stats"></div>
-            <details class="records-all"><summary>All personal records</summary><ul id="records-list" class="records-list"></ul></details>
+        </details>
+        <details class="progress-panel fold activity-panel" data-fold="activity">
+          <summary><h2 id="activity-heading" class="fold-title">Activity</h2><span id="activity-summary" class="fold-hint"></span></summary>
+          <div class="fold-body">
+            <div id="heatmap" class="heatmap" aria-label="Training activity over the last year"></div>
+            <p id="heatmap-caption" class="heatmap-caption">Tap a day to open it in the calendar below.</p>
+            <div class="heatmap-legend" aria-hidden="true"><span>Less</span><i class="heat-0"></i><i class="heat-1"></i><i class="heat-2"></i><i class="heat-3"></i><i class="heat-4"></i><span>More</span></div>
+            <div id="heatmap-stats" class="progress-stats"></div>
           </div>
-        </section>
+        </details>
         <div class="calendar-panel" aria-label="Training calendar">
           <div class="calendar-toolbar">
             <button type="button" id="calendar-prev" class="calendar-arrow" aria-label="Previous month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -243,6 +257,20 @@
           <div id="selected-day-summary" class="selected-day-summary" aria-live="polite"></div>
         </section>
         <div id="history-list" class="history-list"></div>
+        <details class="progress-panel fold records-panel" data-fold="records">
+          <summary><h2 id="records-heading" class="fold-title">Exercise progress</h2><span id="records-summary" class="fold-hint"></span></summary>
+          <div class="fold-body">
+            <p id="records-empty" class="saved-empty">Finish a workout and each exercise's records and chart appear here.</p>
+            <div id="records-body" hidden>
+              <label class="weekly-goal-control" for="records-exercise">Exercise <select id="records-exercise"></select></label>
+              <p id="records-metric" class="records-metric"></p>
+              <div id="records-chart" class="chart-wrap"></div>
+              <p class="chart-key"><i class="chart-key-dot"></i> New high</p>
+              <div id="records-stats" class="progress-stats"></div>
+              <details class="records-all"><summary>All personal records</summary><ul id="records-list" class="records-list"></ul></details>
+            </div>
+          </div>
+        </details>
       </section>
       <button type="button" id="build-cta" class="build-cta" hidden><span><strong id="build-cta-count">0 exercises</strong><small>in today's workout</small></span><span class="build-cta-action">Start logging <span aria-hidden="true">→</span></span></button>
       <div id="rest-timer" class="rest-timer" role="timer" aria-label="Rest timer" hidden>

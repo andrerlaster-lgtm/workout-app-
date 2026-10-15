@@ -105,6 +105,8 @@ function emptyState() {
     weekPlan: {},
     bodyWeights: [],
     recordsExercise: "",
+    folds: {},
+    openExercise: "",
     session: null,
     history: [],
     savedWorkouts: []
@@ -139,6 +141,10 @@ function loadState() {
           .map((entry) => ({ day: entry.day, weight: Number(entry.weight), unit: entry.unit }))
         : [],
       recordsExercise: typeof saved.recordsExercise === "string" ? saved.recordsExercise : "",
+      folds: saved.folds && typeof saved.folds === "object" && !Array.isArray(saved.folds)
+        ? Object.fromEntries(Object.entries(saved.folds).filter(([, open]) => typeof open === "boolean"))
+        : {},
+      openExercise: typeof saved.openExercise === "string" ? saved.openExercise : "",
       session: saved.session && Array.isArray(saved.session.exercises) ? {
         ...saved.session,
         exercises: saved.session.exercises.map((item) => {
@@ -501,6 +507,152 @@ const checkIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l
 const plusIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 const trashIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
 
+// ---------- Folds: sections that open and close so screens stay short ----------
+const FOLD_DEFAULTS = { plan: false, weight: false, preset: false, draft: false, logOptions: false, progress: false, activity: true, records: false };
+
+function initFolds() {
+  document.querySelectorAll("details[data-fold]").forEach((el) => {
+    const key = el.dataset.fold;
+    const stored = () => (key in state.folds ? state.folds[key] : FOLD_DEFAULTS[key]);
+    el.open = Boolean(stored());
+    el.addEventListener("toggle", () => {
+      if (el.open === Boolean(stored())) return;
+      state.folds[key] = el.open;
+      saveState();
+    });
+  });
+}
+
+// ---------- Activity heatmap ----------
+function mondayOf(date) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() - ((copy.getDay() + 6) % 7));
+  return copy;
+}
+
+// Sets logged per day (a gym day with no workout counts as 1).
+function activityByDay() {
+  const counts = new Map();
+  state.history.forEach((session) => {
+    const day = workoutDay(session);
+    if (!isDateKey(day)) return;
+    const sets = Array.isArray(session.exercises) ? session.exercises.reduce((sum, item) => sum + (item.sets || []).length, 0) : 0;
+    counts.set(day, (counts.get(day) || 0) + Math.max(sets, 1));
+  });
+  state.manualDays.forEach((day) => {
+    if (isDateKey(day) && !counts.has(day)) counts.set(day, 1);
+  });
+  return counts;
+}
+
+function heatLevel(count) {
+  return count <= 0 ? 0 : count < 9 ? 1 : count < 17 ? 2 : count < 25 ? 3 : 4;
+}
+
+let heatmapScroll = null;
+
+function renderHeatmap() {
+  const host = document.getElementById("heatmap");
+  const counts = activityByDay();
+  const today = dateFromKey(localDateKey(new Date()));
+  const todayKey = localDateKey(today);
+  const weeks = 53;
+  const start = mondayOf(today);
+  start.setDate(start.getDate() - (weeks - 1) * 7);
+  const CELL = 10, STEP = 12, LEFT = 20, TOP = 16;
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 " + (LEFT + weeks * STEP) + " " + (TOP + 7 * STEP));
+  svg.setAttribute("class", "heatmap-svg");
+  svg.setAttribute("role", "group");
+  svg.setAttribute("aria-label", "Daily training activity, last 12 months");
+  const make = (tag, attrs) => {
+    const el = document.createElementNS(NS, tag);
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, String(value)));
+    return el;
+  };
+  ["Mon", "Wed", "Fri"].forEach((label, index) => {
+    const text = make("text", { x: 0, y: TOP + index * 2 * STEP + CELL - 1, class: "heat-label" });
+    text.textContent = label[0];
+    svg.append(text);
+  });
+  const weekCounts = [];
+  let trainedDays = 0;
+  for (let week = 0; week < weeks; week += 1) {
+    const monday = new Date(start);
+    monday.setDate(start.getDate() + week * 7);
+    if (monday.getDate() <= 7) {
+      const month = make("text", { x: LEFT + week * STEP, y: 10, class: "heat-label" });
+      month.textContent = monday.toLocaleString(undefined, { month: "short" });
+      svg.append(month);
+    }
+    let inWeek = 0;
+    for (let row = 0; row < 7; row += 1) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + row);
+      if (date > today) continue;
+      const key = localDateKey(date);
+      const count = counts.get(key) || 0;
+      if (count > 0) { inWeek += 1; trainedDays += 1; }
+      const rect = make("rect", {
+        x: LEFT + week * STEP, y: TOP + row * STEP, width: CELL, height: CELL, rx: 2,
+        class: "heat-cell heat-" + heatLevel(count) + (key === state.selectedDay ? " is-selected" : "") + (key === todayKey ? " is-today" : ""),
+        "data-day": key, tabindex: "-1"
+      });
+      const title = document.createElementNS(NS, "title");
+      title.textContent = shortDay(key) + " · " + (count ? (count === 1 && state.manualDays.includes(key) && !workoutsForDay(key).length ? "gym day" : plural(count, "set")) : "rest");
+      rect.append(title);
+      svg.append(rect);
+    }
+    weekCounts.push(inWeek);
+  }
+  svg.addEventListener("click", (event) => {
+    const cell = event.target.closest && event.target.closest("[data-day]");
+    if (!cell) return;
+    state.selectedDay = cell.dataset.day;
+    state.calendarMonth = state.selectedDay.slice(0, 7);
+    saveState();
+    renderHistory();
+    const sessions = workoutsForDay(state.selectedDay);
+    const sets = sessions.reduce((sum, session) => sum + countSets(session), 0);
+    document.getElementById("heatmap-caption").textContent = formatDate(dateFromKey(state.selectedDay).toISOString(), { weekday: "long", month: "short", day: "numeric" }) +
+      " · " + (sessions.length ? plural(sets, "set") + " in " + plural(sessions.length, "workout") : counts.has(state.selectedDay) ? "gym day" : "rest day");
+  });
+
+  const previousWidth = host.scrollWidth;
+  const keep = heatmapScroll === null ? null : host.scrollLeft;
+  host.replaceChildren(svg);
+  heatmapScroll = true;
+  host.scrollLeft = keep === null || previousWidth === 0 ? host.scrollWidth : keep;
+
+  // Weeks on target in a row (this week counts once it reaches the goal).
+  const goal = state.weeklyGoal;
+  let current = 0;
+  let index = weekCounts.length - 2;
+  while (index >= 0 && weekCounts[index] >= goal) { current += 1; index -= 1; }
+  if (weekCounts[weekCounts.length - 1] >= goal) current += 1;
+  let best = 0;
+  let run = 0;
+  weekCounts.forEach((count) => { run = count >= goal ? run + 1 : 0; best = Math.max(best, run); });
+
+  document.getElementById("activity-summary").textContent = trainedDays + (trainedDays === 1 ? " day" : " days") + " this year";
+  const stats = document.getElementById("heatmap-stats");
+  stats.replaceChildren();
+  [["DAYS TRAINED", String(trainedDays), "in the last 12 months"],
+   ["WEEK STREAK", String(current), "weeks in a row at " + goal + "+ days"],
+   ["BEST STREAK", String(best), "weeks in a row this year"]].forEach(([label, value, detail]) => {
+    const box = document.createElement("div");
+    box.className = "progress-stat";
+    const a = document.createElement("span"); a.textContent = label;
+    const b = document.createElement("strong"); b.textContent = value;
+    const c = document.createElement("small"); c.textContent = detail;
+    box.append(a, b, c);
+    stats.append(box);
+  });
+}
+
+let savedExpanded = false;
+
 // ---------- Last time, next target and personal records ----------
 // Ideas from open-source trackers (MyFit, wger, Flexify, openGym), written fresh:
 // show what you did last time, suggest a next step with the reason, flag records.
@@ -763,7 +915,10 @@ function renderRecords() {
   const body = document.getElementById("records-body");
   empty.hidden = names.length > 0;
   body.hidden = names.length === 0;
-  if (names.length === 0) return;
+  if (names.length === 0) {
+    document.getElementById("records-summary").textContent = "No workouts yet";
+    return;
+  }
   const recent = new Map();
   state.history.forEach((session, order) => (session.exercises || []).forEach((item) => recent.set(item.exercise, workoutDay(session) + String(order).padStart(6, "0"))));
   names.sort((a, b) => String(recent.get(b)).localeCompare(String(recent.get(a))));
@@ -779,6 +934,7 @@ function renderRecords() {
   select.value = state.recordsExercise;
 
   const record = exerciseRecord(state.recordsExercise);
+  document.getElementById("records-summary").textContent = record ? record.name + " · " + recordText(record) : "";
   const chart = document.getElementById("records-chart");
   const stats = document.getElementById("records-stats");
   stats.replaceChildren();
@@ -882,6 +1038,10 @@ function renderPlan() {
     list.append(row);
   });
 
+  const plannedDays = WEEKDAYS.filter(([key]) => plannedWorkout(key)).length;
+  const todayPlanned = plannedWorkout(todayKey);
+  document.getElementById("plan-summary").textContent = todayPlanned ? "Today: " + todayPlanned.name
+    : plannedDays ? plural(plannedDays, "day") + " planned" : "Not set";
   const card = document.getElementById("today-plan");
   const planned = plannedWorkout(todayKey);
   const inProgress = Boolean(state.session && state.session.exercises.length);
@@ -913,7 +1073,7 @@ function renderBodyWeight() {
   empty.hidden = entries.length > 0;
   chart.hidden = entries.length === 0;
   if (entries.length === 0) {
-    latestEl.textContent = "";
+    latestEl.textContent = "Not logged";
     chart.replaceChildren();
     return;
   }
@@ -979,7 +1139,12 @@ function renderHome() {
   const list = document.getElementById("saved-list");
   list.replaceChildren();
   document.getElementById("saved-empty").hidden = state.savedWorkouts.length > 0;
-  state.savedWorkouts.forEach((saved) => {
+  const SAVED_VISIBLE = 3;
+  const more = document.getElementById("saved-more");
+  more.hidden = state.savedWorkouts.length <= SAVED_VISIBLE;
+  more.textContent = savedExpanded ? "Show fewer" : "Show all " + state.savedWorkouts.length;
+  const shownSaved = savedExpanded ? state.savedWorkouts : state.savedWorkouts.slice(0, SAVED_VISIBLE);
+  shownSaved.forEach((saved) => {
     const item = document.createElement("li");
     item.className = "saved-item";
     const start = document.createElement("button");
@@ -1181,7 +1346,7 @@ function selectMuscle(muscle) {
 
 function renderDraft() {
   const exercises = state.session ? state.session.exercises : [];
-  draftCount.textContent = String(exercises.length);
+  draftCount.textContent = exercises.length ? plural(exercises.length, "exercise") : "Empty";
   draftEmpty.hidden = exercises.length > 0;
   draftList.replaceChildren();
   document.getElementById("open-log").disabled = exercises.length === 0;
@@ -1565,9 +1730,48 @@ window.setInterval(() => {
   });
 }, 500);
 
+function openExerciseId(session) {
+  if (state.openExercise === "none") return null;
+  if (session.exercises.some((item) => item.id === state.openExercise)) return state.openExercise;
+  const next = session.exercises.find((item) => item.sets.length === 0) || session.exercises[0];
+  return next ? next.id : null;
+}
+
+function renderCompactCard(item) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "log-card log-card-compact";
+  button.setAttribute("aria-expanded", "false");
+  const text = document.createElement("span");
+  text.className = "compact-text";
+  const name = document.createElement("strong");
+  name.textContent = item.exercise;
+  if (item.sets.some((set) => set.pr)) name.append(prBadge());
+  const detail = document.createElement("small");
+  detail.textContent = item.sets.length === 0
+    ? item.muscle + " · no sets yet"
+    : plural(item.sets.length, "set") + " · " + formatLoggedSet(item.sets[item.sets.length - 1], item.exercise);
+  text.append(name, detail);
+  const chevron = document.createElement("span");
+  chevron.className = "fold-chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  button.append(text, chevron);
+  button.addEventListener("click", () => {
+    state.openExercise = item.id;
+    saveState();
+    renderLog();
+  });
+  return button;
+}
+
 function renderLog() {
   logSession.replaceChildren();
   const session = state.session;
+  const optionsDay = session && isDateKey(session.workoutDate) ? session.workoutDate : state.workoutDate;
+  document.getElementById("log-options-summary").textContent =
+    (session ? session.weightUnit : state.weightUnit) + " · " +
+    (optionsDay === localDateKey(new Date()) ? "Today" : shortDay(optionsDay)) + " · Rest " +
+    (state.restSeconds ? formatDuration(state.restSeconds) : "off");
   const hasWeightedSets = session && session.exercises.some((item) => item.sets.some((set) => set.weight !== undefined));
   unitSelect.value = session ? session.weightUnit : state.weightUnit;
   workoutDateInput.value = session && isDateKey(session.workoutDate) ? session.workoutDate : state.workoutDate;
@@ -1588,7 +1792,12 @@ function renderLog() {
     return;
   }
 
+  const openId = openExerciseId(session);
   session.exercises.forEach((item) => {
+    if (item.id !== openId) {
+      logSession.append(renderCompactCard(item));
+      return;
+    }
     const card = document.createElement("article");
     card.className = "log-card";
     const header = document.createElement("div");
@@ -1603,7 +1812,18 @@ function renderLog() {
     else if (repsOnlyExercises.has(item.exercise)) subtitle.textContent += " · Reps only";
     if (item.targetReps) subtitle.textContent += " · Target " + item.targetReps + " reps × " + item.targetSets + " rounds";
     headingGroup.append(title, subtitle);
-    header.append(headingGroup, guideButton(item.exercise));
+    const collapse = document.createElement("button");
+    collapse.type = "button";
+    collapse.className = "icon-button collapse-button";
+    collapse.setAttribute("aria-label", "Collapse " + item.exercise);
+    collapse.setAttribute("aria-expanded", "true");
+    collapse.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+    collapse.addEventListener("click", () => {
+      state.openExercise = "none";
+      saveState();
+      renderLog();
+    });
+    header.append(headingGroup, guideButton(item.exercise), collapse);
     const info = nextTarget(item.exercise, session.weightUnit);
 
     const setHeader = document.createElement("div");
@@ -1871,6 +2091,7 @@ function renderProgress() {
     setsDetail = (change > 0 ? "+" : "") + change.toFixed(1) + " vs previous " + previousSets.length + (previousSets.length === 1 ? " workout" : " workouts");
   }
   document.getElementById("progress-sets-detail").textContent = setsDetail;
+  document.getElementById("progress-summary").textContent = plural(count, "day") + " · " + weekCount + "/" + state.weeklyGoal + " this week";
   document.getElementById("progress-message").textContent = count === 0
     ? "Log a workout or mark a gym day to begin."
     : weekCount >= state.weeklyGoal ? "Weekly goal reached. Keep building your routine at your own pace."
@@ -1931,6 +2152,7 @@ function renderSelectedDay() {
 function renderHistory() {
   renderProgress();
   renderRecords();
+  renderHeatmap();
   renderCalendar();
   renderSelectedDay();
   historyList.replaceChildren();
@@ -2177,6 +2399,11 @@ unitSelect.addEventListener("change", () => {
 document.getElementById("close-guide").addEventListener("click", () => document.getElementById("exercise-guide").close());
 document.getElementById("exercise-guide").addEventListener("click", (event) => {
   if (event.target === event.currentTarget) event.currentTarget.close();
+});
+initFolds();
+document.getElementById("saved-more").addEventListener("click", () => {
+  savedExpanded = !savedExpanded;
+  renderHome();
 });
 document.getElementById("weight-form").addEventListener("submit", logBodyWeight);
 document.getElementById("weight-remove").addEventListener("click", removeLatestBodyWeight);

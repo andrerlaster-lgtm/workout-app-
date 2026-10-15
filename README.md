@@ -28,6 +28,8 @@ A phone-first workout app for finding exercises by muscle group and recording gy
 - **Exercise progress** (History): pick an exercise to see a chart of your top weight per workout, your best set, estimated 1RM, and a list of every personal record.
 - **Weekly plan** (Home): choose a saved workout for each weekday. Today's plan appears as a card with a one-tap Start.
 - **Body weight** (Home): log your weight and see a chart and the change since last time. Undo is available.
+- **Activity heatmap** (History): a year of training days as a grid, darker for more sets. Tap a day to open it in the calendar. Also shows days trained and your streak of weeks hitting the weekly goal.
+- **Less scrolling:** Weekly plan, Body weight, the body-part presets, Your workout, workout options and the History panels are tap-to-open boxes that remember whether you left them open. The Log shows one exercise open at a time; the others are one-line rows you tap to open. Saved workouts show the first three with a Show all button.
 - Save the active workout and workout history in this browser's local storage.
 
 Workout data stays on the device and browser where it was entered. It does not sync between devices or browsers.
