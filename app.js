@@ -113,10 +113,24 @@ function emptyState() {
   };
 }
 
+// Saves from older versions can miss the weight unit on a workout or on its weighted sets.
+// Fill it in on load so labels never read "undefined" (the saved data is otherwise untouched).
+function withUnits(session, fallbackUnit) {
+  if (!session || typeof session !== "object") return session;
+  const unit = session.weightUnit === "kg" || session.weightUnit === "lb" ? session.weightUnit : fallbackUnit;
+  const exercises = Array.isArray(session.exercises)
+    ? session.exercises.map((item) => (item && Array.isArray(item.sets)
+      ? { ...item, sets: item.sets.map((set) => (set && setKind(set, item.exercise) === "weight" && set.unit !== "lb" && set.unit !== "kg" ? { ...set, unit } : set)) }
+      : item))
+    : session.exercises;
+  return { ...session, weightUnit: unit, exercises };
+}
+
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
     if (!saved || typeof saved !== "object") return emptyState();
+    const unitFallback = saved.weightUnit === "kg" ? "kg" : "lb";
     return {
       ...emptyState(),
       ...saved,
@@ -145,7 +159,7 @@ function loadState() {
         ? Object.fromEntries(Object.entries(saved.folds).filter(([, open]) => typeof open === "boolean"))
         : {},
       openExercise: typeof saved.openExercise === "string" ? saved.openExercise : "",
-      session: saved.session && Array.isArray(saved.session.exercises) ? {
+      session: saved.session && Array.isArray(saved.session.exercises) ? withUnits({
         ...saved.session,
         exercises: saved.session.exercises.map((item) => {
           if (timedExercises.has(item.exercise)) {
@@ -158,8 +172,8 @@ function loadState() {
           }
           return item;
         })
-      } : null,
-      history: Array.isArray(saved.history) ? saved.history : [],
+      }, unitFallback) : null,
+      history: Array.isArray(saved.history) ? saved.history.map((entry) => withUnits(entry, unitFallback)) : [],
       savedWorkouts: Array.isArray(saved.savedWorkouts)
         ? saved.savedWorkouts.filter((workout) => workout && typeof workout.name === "string" && Array.isArray(workout.exercises))
           .map((workout) => (typeof workout.id === "string" && workout.id ? workout : { ...workout, id: makeId() }))
@@ -600,7 +614,7 @@ function renderHeatmap() {
         "data-day": key, tabindex: "-1"
       });
       const title = document.createElementNS(NS, "title");
-      title.textContent = shortDay(key) + " · " + (count ? (count === 1 && state.manualDays.includes(key) && !workoutsForDay(key).length ? "gym day" : plural(count, "set")) : "rest");
+      title.textContent = formatDate(dateFromKey(key).toISOString(), { month: "short", day: "numeric", year: "numeric" }) + " · " + (count ? (count === 1 && state.manualDays.includes(key) && !workoutsForDay(key).length ? "gym day" : plural(count, "set")) : "rest");
       rect.append(title);
       svg.append(rect);
     }
@@ -615,7 +629,7 @@ function renderHeatmap() {
     renderHistory();
     const sessions = workoutsForDay(state.selectedDay);
     const sets = sessions.reduce((sum, session) => sum + countSets(session), 0);
-    document.getElementById("heatmap-caption").textContent = formatDate(dateFromKey(state.selectedDay).toISOString(), { weekday: "long", month: "short", day: "numeric" }) +
+    document.getElementById("heatmap-caption").textContent = formatDate(dateFromKey(state.selectedDay).toISOString(), { weekday: "long", month: "short", day: "numeric", year: "numeric" }) +
       " · " + (sessions.length ? plural(sets, "set") + " in " + plural(sessions.length, "workout") : counts.has(state.selectedDay) ? "gym day" : "rest day");
   });
 
