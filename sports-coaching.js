@@ -423,7 +423,7 @@ function sportsWeekDecision(input) {
     if (allGood && performance.status === "improving") {
       outcome = "progress";
       reasons.push("All workouts done, fatigue and recovery are healthy, effort is comfortable and run paces improved at similar effort.");
-      reasons.push("Next week adds about 10%, within age limits.");
+      reasons.push("Next week can add a small optional step, up to about 10% and within age limits. It is never required; staying at the same load is always fine.");
     } else if (allGood && performance.status === "none") {
       outcome = "continue";
       reasons.push("Everything looks healthy, but there is no run data to show he is getting fitter. Log distance and time so progress can use performance, not just how he feels.");

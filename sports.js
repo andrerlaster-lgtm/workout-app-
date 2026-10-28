@@ -425,7 +425,7 @@ function renderSportsProgram() {
   if (!program.finished) {
     const week = sp("div", "sp-card");
     week.append(sp("h2", "", "This week"));
-    if (adjust !== 0) week.append(sp("p", "special-note", adjust < 0 ? "This week is eased back about 20% based on recent check-ins." : "This week is stepped up about 10% based on recent check-ins."));
+    if (adjust !== 0) week.append(sp("p", "special-note", adjust < 0 ? "This week is eased back about 20% based on recent check-ins." : "This week has a small optional step up (up to about 10%) because recent check-ins looked good. Do less if he feels tired."));
     if (sportsLightWeek(program.week)) week.append(sp("p", "special-note", "Light week: less volume so the body can absorb the training."));
     const holder = sp("div", "sp-workouts");
     workouts.forEach((workout) => holder.append(renderSportsWorkout(workout, program, todayLabel)));
