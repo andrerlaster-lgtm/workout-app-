@@ -32,13 +32,14 @@ const exercisesByMuscle = {
   hamstrings: ["Romanian deadlift", "Seated leg curl", "Lying leg curl", "Standing leg curl", "Exercise ball leg curl", "Glute-ham raise", "Stiff-leg dumbbell deadlift", "Single-leg kettlebell deadlift"]
 };
 
-const timedExercises = new Set(["Plank", "Farmer carry", "Plate pinch", "Pallof press", "Superman"]);
+const timedExercises = new Set(["Plank", "Farmer carry", "Plate pinch", "Pallof press", "Superman", ...sportsTimedExercises]);
 const repsOnlyExercises = new Set([
   "Push-up", "Pull-up", "Chin-up", "Scapular pull-up", "Bench dip", "Band pull-apart",
   "Dead bug", "Bird dog", "Hanging leg raise", "Reverse crunch", "Ab roller", "Back extension",
   "Single-leg glute bridge", "Glute kickback", "Banded hip extension", "Step-up with knee raise",
   "Exercise ball leg curl", "Glute-ham raise", "Wide-grip push-ups", "Push-ups", "Raised-leg push-ups",
-  "Punches", "Turning kicks", "High knees", "Sit-ups", "Leg raises", "Sitting twists"
+  "Punches", "Turning kicks", "High knees", "Sit-ups", "Leg raises", "Sitting twists",
+  ...sportsRepsOnlyExercises
 ]);
 
 // Exercise lists only: completed sets are always entered by the user.
@@ -109,7 +110,8 @@ function emptyState() {
     openExercise: "",
     session: null,
     history: [],
-    savedWorkouts: []
+    savedWorkouts: [],
+    sports: normalizeSports(null)
   };
 }
 
@@ -134,7 +136,7 @@ function loadState() {
     return {
       ...emptyState(),
       ...saved,
-      appView: ["build", "log", "special", "history"].includes(saved.appView) ? saved.appView : "build",
+      appView: ["build", "log", "special", "sports", "history"].includes(saved.appView) ? saved.appView : "build",
       specialRounds: [3, 5, 7, 10].includes(Number(saved.specialRounds)) ? Number(saved.specialRounds) : 3,
       bodyView: saved.bodyView === "back" ? "back" : "front",
       restSeconds: REST_OPTIONS.includes(Number(saved.restSeconds)) ? Number(saved.restSeconds) : 90,
@@ -177,7 +179,8 @@ function loadState() {
       savedWorkouts: Array.isArray(saved.savedWorkouts)
         ? saved.savedWorkouts.filter((workout) => workout && typeof workout.name === "string" && Array.isArray(workout.exercises))
           .map((workout) => (typeof workout.id === "string" && workout.id ? workout : { ...workout, id: makeId() }))
-        : []
+        : [],
+      sports: normalizeSports(saved.sports)
     };
   } catch {
     return emptyState();
@@ -271,10 +274,18 @@ function openExerciseGuide(name) {
     content.append(image);
     appendGuideSteps(content, illustrated.steps);
     if (illustrated.source) appendGuideCredit(content, "See source demonstration", illustrated.source);
-  } else {
+  } else if (sportsExerciseInfo[name] && sportsExerciseInfo[name].steps) {
+    appendGuideSteps(content, sportsExerciseInfo[name].steps);
+  } else if (!sportsExerciseInfo[name]) {
     const note = document.createElement("p");
     note.textContent = "A movement guide is not available for this exercise yet.";
     content.append(note);
+  }
+  if (sportsExerciseInfo[name]) {
+    const why = document.createElement("p");
+    why.className = "guide-why";
+    why.textContent = "How this helps: " + sportsExerciseInfo[name].why;
+    content.append(why);
   }
   dialog.showModal();
 }
@@ -1195,6 +1206,7 @@ function setAppView(view) {
   document.getElementById("build-workspace").hidden = view !== "build";
   document.getElementById("log-view").hidden = view !== "log";
   document.getElementById("special-view").hidden = view !== "special";
+  document.getElementById("sports-view").hidden = view !== "sports";
   document.getElementById("history-view").hidden = view !== "history";
   document.querySelectorAll("[data-app-view]").forEach((button) => {
     const active = button.dataset.appView === view;
@@ -1204,6 +1216,7 @@ function setAppView(view) {
   });
   if (view === "log") renderLog();
   if (view === "history") renderHistory();
+  if (view === "sports" && typeof renderSports === "function") renderSports();
   renderNav();
   window.scrollTo({ top: 0, behavior: "instant" });
   saveState();
@@ -2276,6 +2289,7 @@ function renderApp() {
   document.getElementById("build-workspace").hidden = state.appView !== "build";
   document.getElementById("log-view").hidden = state.appView !== "log";
   document.getElementById("special-view").hidden = state.appView !== "special";
+  document.getElementById("sports-view").hidden = state.appView !== "sports";
   document.getElementById("history-view").hidden = state.appView !== "history";
   document.querySelectorAll("[data-app-view]").forEach((button) => {
     const active = button.dataset.appView === state.appView;
@@ -2290,6 +2304,7 @@ function renderApp() {
   workoutDateInput.value = state.session && isDateKey(state.session.workoutDate) ? state.session.workoutDate : state.workoutDate;
   if (state.appView === "log") renderLog();
   if (state.appView === "history") renderHistory();
+  if (state.appView === "sports" && typeof renderSports === "function") renderSports();
 }
 
 map.querySelectorAll(".muscle-zone").forEach((zone) => {

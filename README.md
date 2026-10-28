@@ -45,3 +45,17 @@ This dependency-free static app can be served with `python3 -m http.server 4173`
 ## Deploy preview
 
 Run `npm run deploy` to create a Vercel Preview deployment. The script explicitly targets Preview; do not use a production deployment for this prototype. After each deployment, point `workout-log-preview-andrerlaster-lgtms-projects.vercel.app` at its new Preview URL with `vercel alias set <preview-url> workout-log-preview-andrerlaster-lgtms-projects.vercel.app`. Keep using that stable alias on your phone so browser-saved workout history stays on the same origin.
+
+## Sports Performance Training
+
+The **Sports** tab builds a 12-week program (Foundation, Development, Event-specific preparation) for an athlete. It starts with Track & Field → 800 m.
+
+- Flow: choose sport → event → athlete profile (age, experience, phase, 3 non-consecutive days, gym/outdoors, track access, current time) → generate program.
+- Each workout lists endurance, speed, speed-endurance, leg strength, core, running-mechanics and mobility work, with a "how it helps" line for every item.
+- Strength, core, drills and mobility load into the normal **Log** (so sets, rest timer, PRs and History work as usual). Runs (distance, time, pace, effort) are logged in the Sports tab, with personal records and an 800 m time-trial chart.
+- Each workout ends with a check-in (effort, fatigue, recovery, pain). Easing is quick and stepping up is slow, with age caps; the plan adapts the following week. Track workouts switch on when "I have track access" is ticked.
+- Track season: enter school practice days and the plan becomes light support work only.
+- Data is stored in the same browser save under `sports`; older saves load unchanged.
+- To add a sport or event, add it to `sportsCatalog`, add a builder to `sportsBuilders`, and add new exercises to `sportsExerciseInfo` in `sports-data.js`. Logic can be checked in Node: `node -e 'require("./sports-data.js")'`.
+
+This is a planning aid, not medical advice. Athletes should follow their coach and doctor.
