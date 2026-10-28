@@ -76,6 +76,34 @@ const sportsExerciseInfo = {
   "Calf stretch": { category: "mobility", why: "Keeps the calves and Achilles flexible after running to help recovery.", steps: ["Place hands on a wall with one foot back and heel down.", "Lean forward until you feel the calf stretch.", "Hold, then switch legs."] }
 };
 
+// Illustrated two-pose guides (stick-figure SVGs in assets/exercise-guides). Exercises that already
+// have photo guides or earlier illustrations are not listed here.
+const sportsIllustrations = {
+  "Bodyweight squat": "bodyweight-squat", "Walking lunge": "walking-lunge", "Step-up": "step-up", "Hip hinge": "hip-hinge",
+  "Side plank": "side-plank", "A-skip": "a-skip", "B-skip": "b-skip", "Butt kicks": "butt-kicks",
+  "Straight-leg skips": "straight-leg-skips", "Arm swing drill": "arm-swing-drill", "Calf pogo hops": "calf-pogo-hops",
+  "Wall drive march": "wall-drive-march", "Leg swings": "leg-swings", "90/90 hip switch": "90-90-hip-switch",
+  "Hip flexor stretch": "hip-flexor-stretch", "Hamstring stretch": "hamstring-stretch", "Calf stretch": "calf-stretch",
+  "Running form": "running-form", "Acceleration start": "acceleration-start", "Hill sprint": "hill-sprint"
+};
+const sportsRunGuideSteps = {
+  "Running form": ["Run tall with a slight lean from the ankles, not the waist.", "Keep face, shoulders and hands relaxed, and swing the arms front-to-back with elbows near 90 degrees.", "Land with the foot under the hips using quick, light steps. Leaning back and reaching the foot out in front (right panel) wastes energy."],
+  "Acceleration start": ["Start with a strong forward lean and push the ground back for the first few steps.", "Gradually stand taller as speed builds; by about 20 m you should look like the tall running form.", "Stay smooth. This is a controlled build, not an all-out sprint."],
+  "Hill sprint": ["Use a gentle hill with good footing.", "Lean slightly into the hill, take quick short steps and drive the arms.", "Run for 8-10 seconds, then walk back down and rest fully."]
+};
+function sportsRunGuideName(block) {
+  if (block.runType === "accel") return "Acceleration start";
+  if (block.runType === "hills") return "Hill sprint";
+  return "Running form";
+}
+function sportsIllustratedGuide(name) {
+  const file = sportsIllustrations[name];
+  if (!file) return null;
+  const info = sportsExerciseInfo[name];
+  const steps = sportsRunGuideSteps[name] || (info && info.steps) || [];
+  return { image: "/assets/exercise-guides/" + file + ".svg", steps };
+}
+
 // Running blocks (not exercises in the Log): logged in the Sports view with distance, time and effort.
 const sportsRunTypes = {
   easy: "Easy run",
@@ -397,6 +425,6 @@ if (typeof module !== "undefined" && module.exports) {
   Object.assign(module.exports, {
     sportsCatalog, sportsCategories, sportsPhases, sportsExerciseInfo, sportsDefaultProfile, sportsValidateProfile,
     normalizeSports, sportsBuildWeek, sportsAverage, sportsRunRecords, sportsIsRunRecord, sportsPace, sportsClock,
-    sportsAgeRules, sportsPhaseForWeek, SPORTS_PROGRAM_WEEKS, sportsTimedExercises, sportsRepsOnlyExercises
+    sportsAgeRules, sportsPhaseForWeek, sportsIllustrations, SPORTS_PROGRAM_WEEKS, sportsTimedExercises, sportsRepsOnlyExercises
   });
 }

@@ -60,6 +60,10 @@ The **Sports** tab builds a 12-week program (Foundation, Development, Event-spec
 
 This is a planning aid, not medical advice. Athletes should follow their coach and doctor.
 
+### Visual guides
+
+Every sports exercise now opens a guide with a two-pose picture (photos where available, otherwise stick-figure illustrations), the steps, "How this helps", what to watch for and what to avoid. Running steps have a Guide button for running form, acceleration starts and hill sprints.
+
 ### Coaching assistant (parent mode)
 
 - **Coach me** on each workout opens a guided view: what is being developed and why it matters for the 800 m, a readiness check (energy, sleep, soreness, illness) that can switch to an easier version or rest, step-by-step cues (how to do it, what to watch, mistakes to avoid), intensity guidance (RPE and talk test), a rep checker ("too fast or too slow?" from rep times you enter), what to do if he is struggling, stop rules, and an after-session review.

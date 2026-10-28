@@ -317,6 +317,7 @@ function renderSportsBlock(block, workout) {
   item.append(head, sp("p", "sp-block-line", sportsBlockLine(block) + (block.effort ? " · " + block.effort : "")));
   item.append(sp("p", "sp-why", "How it helps: " + block.why));
   if (block.kind === "run") {
+    head.append(guideButton(sportsRunGuideName(block)));
     item.append(sportsButton("Log this run", "ghost-button small", () => openRunDialog(block)));
   }
   return item;
@@ -866,7 +867,7 @@ function renderCoachStep(block, index) {
     details.append(sp("h4", "", "If he is struggling"), sp("p", "", rc.ifStruggling));
     const last = [...state.sports.runs].reverse().find((run) => run.type === block.runType || (block.runType === "repeats" && run.type === "repeats"));
     if (last) details.append(sp("p", "sp-fine", "Last similar run: " + sportsDistanceText(last.meters) + " in " + sportsClock(last.seconds) + " (" + sportsPaceText(last) + (last.rpe ? ", effort " + last.rpe + "/10" : "") + ")."));
-    details.append(sportsButton("Log this run", "ghost-button small", () => openRunDialog(block)));
+    details.append(guideButton(sportsRunGuideName(block)), sportsButton("Log this run", "ghost-button small", () => openRunDialog(block)));
   }
   return details;
 }
@@ -954,6 +955,7 @@ function renderSportsCoach(workout, program) {
   const form = sp("div", "sp-card");
   form.append(sp("h2", "", "What good running form looks like"));
   form.append(sportsList(["Tall chest and a slight lean from the ankles, not the waist.", "Relaxed face, shoulders and hands (loose, not fists).", "Arms bent about 90 degrees, swinging front-to-back.", "Feet land under the body with quick, light steps, not far out in front.", "Eyes ahead, head still."]));
+  form.append(guideButton("Running form"));
   form.append(sp("p", "sp-fine", "Film a short clip from the side if you want to compare weeks. The app does not analyse video or form."));
   sportsRoot.append(form);
 
