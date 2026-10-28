@@ -797,3 +797,5 @@ html { scroll-behavior:smooth; }
 .sp-card h3 + p { margin-top:0; }
 .coach-chip { min-height:36px; padding:0 12px; border:1px solid var(--lime); border-radius:9px; background:rgba(198,243,106,.1); color:var(--lime); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
 .sp-workout summary { flex-wrap:wrap; }
+.guide-list { margin:0 0 14px; padding-left:22px; color:#d4ddd2; font-size:13px; display:grid; gap:5px; }
+.exercise-guide .guide-sub { margin:12px 0 6px; color:var(--lime); font-size:11px; letter-spacing:.1em; text-transform:uppercase; }

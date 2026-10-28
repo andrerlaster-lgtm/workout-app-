@@ -4,8 +4,11 @@ const vm = require("vm");
 const assert = require("assert");
 const path = require("path");
 const ctx = vm.createContext({ console });
-["sports-data.js", "sports-coaching.js"].forEach((file) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), ctx, { filename: file }));
+["sports-data.js", "sports-coaching.js", "exercise-guides.js"].forEach((file) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), ctx, { filename: file }));
 const run = (code) => vm.runInContext(code, ctx);
+// Exercises whose visuals live in app.js (earlier illustrations) rather than the sports files.
+vm.runInContext(`function sportsExerciseDictCheck() { const earlier = ["Bird dog", "High knees"];
+  return Object.keys(sportsExerciseInfo).filter((n) => !exerciseGuides[n] && !sportsIllustrations[n] && !earlier.includes(n)); }`, ctx);
 let passed = 0;
 const test = (name, fn) => { fn(); passed += 1; console.log("ok -", name); };
 
@@ -23,6 +26,13 @@ test("every generated block has coaching content for every profile, week and adj
     return [...new Set(out)];
   })()`);
   assert.strictEqual(JSON.stringify(missing), "[]");
+});
+
+test("every sports exercise has a visual guide (photos, an earlier illustration, or a new SVG)", () => {
+  const withoutVisual = run(`sportsExerciseDictCheck()`);
+  assert.strictEqual(JSON.stringify(withoutVisual), "[]");
+  const missingFiles = run("Object.values(sportsIllustrations)").filter((file) => !fs.existsSync(path.join(__dirname, "..", "assets", "exercise-guides", file + ".svg")));
+  assert.strictEqual(missingFiles.length, 0);
 });
 
 test("default profile is valid and back-to-back days are rejected", () => {

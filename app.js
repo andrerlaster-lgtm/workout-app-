@@ -241,7 +241,7 @@ function openExerciseGuide(name) {
   const dialog = document.getElementById("exercise-guide");
   const content = document.getElementById("guide-content");
   const photoGuide = exerciseGuides[name];
-  const illustrated = illustratedGuides[name];
+  const illustrated = illustratedGuides[name] || sportsIllustratedGuide(name);
   document.getElementById("guide-title").textContent = name;
   content.replaceChildren();
 
@@ -272,7 +272,7 @@ function openExerciseGuide(name) {
     image.alt = "Two poses showing how to do " + name;
     image.className = "guide-illustration";
     content.append(image);
-    appendGuideSteps(content, illustrated.steps);
+    if (illustrated.steps.length) appendGuideSteps(content, illustrated.steps);
     if (illustrated.source) appendGuideCredit(content, "See source demonstration", illustrated.source);
   } else if (sportsExerciseInfo[name] && sportsExerciseInfo[name].steps) {
     appendGuideSteps(content, sportsExerciseInfo[name].steps);
@@ -286,6 +286,17 @@ function openExerciseGuide(name) {
     why.className = "guide-why";
     why.textContent = "How this helps: " + sportsExerciseInfo[name].why;
     content.append(why);
+    const coach = sportsExerciseCoach[name];
+    [["Watch for", coach && coach.cues], ["Avoid", coach && coach.mistakes]].forEach(([label, items]) => {
+      if (!items || !items.length) return;
+      const heading = document.createElement("h3");
+      heading.textContent = label;
+      heading.className = "guide-sub";
+      const list = document.createElement("ul");
+      list.className = "guide-list";
+      items.forEach((item) => { const li = document.createElement("li"); li.textContent = item; list.append(li); });
+      content.append(heading, list);
+    });
   }
   dialog.showModal();
 }
