@@ -799,3 +799,26 @@ html { scroll-behavior:smooth; }
 .sp-workout summary { flex-wrap:wrap; }
 .guide-list { margin:0 0 14px; padding-left:22px; color:#d4ddd2; font-size:13px; display:grid; gap:5px; }
 .exercise-guide .guide-sub { margin:12px 0 6px; color:var(--lime); font-size:11px; letter-spacing:.1em; text-transform:uppercase; }
+
+/* Run tracker */
+.rt-card { text-align:center; }
+.rt-card .sp-fine,.rt-card .sp-list,.rt-card .field-error,.rt-card .sp-field,.rt-card .sp-banner { text-align:left; }
+.rt-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0; }
+.rt-stats .rt-stat:first-child:nth-last-child(1) { grid-column:1 / -1; }
+.rt-stat { padding:14px 8px; border-radius:14px; background:rgba(255,255,255,.04); }
+.rt-stat strong { display:block; font-size:clamp(30px,10vw,44px); line-height:1.05; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+.rt-stat span { color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+.rt-percent { margin:6px 0; color:var(--muted); font-size:12px; }
+.rt-flash { min-height:28px; margin:8px 0; color:var(--lime); font-size:18px; font-weight:800; }
+.rt-status { margin:6px 0; font-size:13px; font-weight:700; color:var(--muted); }
+.rt-status.is-good { color:var(--lime); } .rt-status.is-lost { color:#ffb951; } .rt-status.is-searching { color:#ffb951; }
+.rt-controls { margin-top:14px; }
+.rt-big { min-height:64px; font-size:17px; }
+.rt-splits { margin:8px 0; }
+.rt-launch { width:100%; margin-top:10px; }
+.rt-inline { align-items:center; justify-content:space-between; margin-top:8px; }
+.rt-time-inline { font-size:28px; font-variant-numeric:tabular-nums; }
+.sp-modes { grid-template-columns:1fr; }
+@media(min-width:520px) { .sp-modes { grid-template-columns:repeat(3,1fr); } }
+#sports-view.is-tracking .secondary-heading { display:none; }
+#sports-view.is-tracking { padding-top:14px; }

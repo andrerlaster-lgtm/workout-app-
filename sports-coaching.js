@@ -335,7 +335,7 @@ function sportsPerformanceSignal(runs) {
   runs.filter((run) => ["easy", "tempo", "repeats", "check", "trial", "fartlek"].includes(run.type) && run.meters >= 200)
     .sort((a, b) => a.day.localeCompare(b.day))
     .forEach((run) => {
-      const key = run.type + ":" + Math.round(Math.log(run.meters) / Math.log(1.2));
+      const key = run.type + ":" + sportsSourceGroup(run.source) + ":" + Math.round(Math.log(run.meters) / Math.log(1.2));
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(run);
     });
@@ -472,6 +472,8 @@ function sportsInsights(data) {
   }
   if (performance.status === "none") tells.push("Not enough run data to say whether his running is improving. Compare similar runs by logging distance and time.");
   else tells.push(performance.notes.length ? performance.notes.join(" ") : "His run paces are steady at similar effort so far.");
+  const gpsCount = runs.filter((run) => run.source === "gps").length;
+  if (gpsCount) tells.push(gpsCount + " of " + runs.length + " runs are GPS estimates. They are less precise than track-measured runs, especially on short distances, so the app compares like with like (GPS with GPS, track with track).");
   if (easyRuns.length >= 2) {
     const first = easyRuns[0];
     const last = easyRuns[easyRuns.length - 1];
