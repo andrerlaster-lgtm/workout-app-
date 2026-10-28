@@ -4,7 +4,7 @@ const vm = require("vm");
 const assert = require("assert");
 const path = require("path");
 const ctx = vm.createContext({ console });
-["sports-data.js", "sports-coaching.js", "exercise-guides.js"].forEach((file) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), ctx, { filename: file }));
+["sports-data.js", "sports-gps.js", "sports-coaching.js", "exercise-guides.js"].forEach((file) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), ctx, { filename: file }));
 const run = (code) => vm.runInContext(code, ctx);
 // Exercises whose visuals live in app.js (earlier illustrations) rather than the sports files.
 vm.runInContext(`function sportsExerciseDictCheck() { const earlier = ["Bird dog", "High knees"];
@@ -89,5 +89,140 @@ test("saved data is validated", () => {
   assert.strictEqual(n.program.week, 1);
   assert.strictEqual(n.program.log.length, 0);
   assert.deepStrictEqual(Array.from(n.runs[0].splits), [50]);
+});
+
+// ---------- Run tracking ----------
+const gps = (code) => vm.runInContext(code, ctx);
+function simulate(opts) {
+  // Straight-line run along a meridian at `speed` m/s, one reading per second, seeded noise in meters.
+  return gps(`(() => {
+    let seed = ${opts.seed || 7};
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296 - 0.5; };
+    const tr = sportsGpsTracker(${opts.target});
+    const mPerDeg = 111194.9;
+    const events = [];
+    const speed = ${opts.speed};
+    for (let sec = 0; sec <= ${opts.seconds}; sec += 1) {
+      const trueM = sec * speed;
+      const noise = ${opts.noise} * 2;
+      const lat = 40 + (trueM + rnd() * noise) / mPerDeg;
+      const lon = -75 + (rnd() * noise) / (mPerDeg * Math.cos(40 * Math.PI / 180));
+      tr.fix({ lat, lon, accuracy: ${opts.accuracy}, t: 1e12 + sec * 1000 }, sec * 1000).events.forEach((e) => events.push(e));
+    }
+    return { distance: tr.distance, events, tr, quality: tr.quality(), reachedMs: tr.reachedMs, fired: tr.fired.slice(), ignored: tr.ignored };
+  })()`);
+}
+
+test("haversine matches a known distance", () => {
+  const d = gps("sportsHaversine({ lat: 40, lon: -75 }, { lat: 40.001, lon: -75 })");
+  assert.ok(Math.abs(d - 111.2) < 0.5, "got " + d);
+});
+
+test("unit conversions: 800 m is about 0.497 miles and a mile is 1609 m", () => {
+  assert.ok(Math.abs(gps('sportsUnitFromMeters(800, "mi")') - 0.4971) < 0.001);
+  assert.strictEqual(gps('sportsMetersFrom(1, "mi")'), 1609);
+  assert.strictEqual(gps('sportsMetersFrom(0.8, "km")'), 800);
+});
+
+test("milestones: 800 m notifies at 200, 400, 600 then the finish", () => {
+  assert.strictEqual(JSON.stringify(gps("sportsMilestones(800)")), "[200,400,600]");
+  assert.strictEqual(JSON.stringify(gps("sportsMilestones(400)")), "[100,200,300]");
+  assert.strictEqual(JSON.stringify(gps("sportsMilestones(100)")), "[]");
+});
+
+test("GPS: a noisy 800 m run is measured within 8% and fires every milestone in order", () => {
+  const r = simulate({ target: 800, speed: 5, seconds: 200, noise: 3, accuracy: 6 });
+  assert.ok(r.distance > 1000 * 0.95 && r.distance < 1000 * 1.06, "distance " + r.distance);
+  assert.strictEqual(JSON.stringify(r.fired), "[200,400,600]");
+  assert.strictEqual(r.events.filter((e) => e.type === "target").length, 1);
+  assert.ok(r.reachedMs > 140000 && r.reachedMs < 180000, "reached at " + r.reachedMs);
+});
+
+test("GPS: standing still with jitter adds almost no distance", () => {
+  const r = simulate({ target: 800, speed: 0, seconds: 120, noise: 4, accuracy: 10 });
+  assert.ok(r.distance < 20, "stationary distance " + r.distance);
+});
+
+test("GPS: readings worse than 25 m are ignored and quality is poor", () => {
+  const r = simulate({ target: 800, speed: 5, seconds: 60, noise: 3, accuracy: 40 });
+  assert.strictEqual(r.distance, 0);
+  assert.strictEqual(r.quality, "poor");
+});
+
+test("GPS: a teleport glitch is ignored", () => {
+  const out = gps(`(() => { const tr = sportsGpsTracker(0);
+    tr.fix({ lat: 40, lon: -75, accuracy: 5, t: 1e12 }, 0);
+    tr.fix({ lat: 40.0001, lon: -75, accuracy: 5, t: 1e12 + 1000 }, 1000);
+    const before = tr.distance;
+    tr.fix({ lat: 40.05, lon: -75, accuracy: 5, t: 1e12 + 2000 }, 2000);
+    return { before, after: tr.distance }; })()`);
+  assert.ok(out.before > 5 && out.before < 8, "before " + out.before);
+  assert.strictEqual(out.after, out.before);
+});
+
+test("GPS: a long signal gap is counted and lowers quality", () => {
+  const out = gps(`(() => { const tr = sportsGpsTracker(0);
+    tr.fix({ lat: 40, lon: -75, accuracy: 5, t: 1e12 }, 0);
+    tr.fix({ lat: 40.0002, lon: -75, accuracy: 5, t: 1e12 + 30000 }, 30000);
+    tr.fix({ lat: 40.0004, lon: -75, accuracy: 5, t: 1e12 + 70000 }, 70000);
+    return { gaps: tr.gaps, quality: tr.quality() }; })()`);
+  assert.strictEqual(out.gaps, 2);
+  assert.strictEqual(out.quality, "poor");
+});
+
+test("GPS: after a pause the first reading re-anchors instead of adding the walked distance", () => {
+  const d = gps(`(() => { const tr = sportsGpsTracker(0);
+    tr.fix({ lat: 40, lon: -75, accuracy: 5, t: 1e12 }, 0);
+    tr.fix({ lat: 40.00014, lon: -75, accuracy: 5, t: 1e12 + 1000 }, 1000);
+    tr.resetAnchor();
+    tr.fix({ lat: 40.001, lon: -75, accuracy: 5, t: 1e12 + 60000 }, 2000);
+    tr.fix({ lat: 40.00114, lon: -75, accuracy: 5, t: 1e12 + 61000 }, 3000);
+    return tr.distance; })()`);
+  assert.ok(d > 14 && d < 20, "distance " + d);
+});
+
+test("the margin shown for GPS is wider on poor signal", () => {
+  assert.ok(gps('sportsGpsMargin(200, "poor", 20)') > gps('sportsGpsMargin(200, "good", 5)'));
+});
+
+test("timer pauses and resumes from timestamps", () => {
+  const out = gps(`(() => { const c = sportsClockNew(); sportsClockStart(c, 1000); sportsClockPause(c, 6000);
+    const paused = sportsClockElapsed(c, 20000); sportsClockStart(c, 30000); return [paused, sportsClockElapsed(c, 34000)]; })()`);
+  assert.strictEqual(out[0], 5000);
+  assert.strictEqual(out[1], 9000);
+});
+
+test("saved runs: GPS and timed runs load, a timed run may have no distance, bad sources are cleaned", () => {
+  const n = run(`normalizeSports({ runs: [
+    { id: "a", day: "2026-01-01", meters: 812, seconds: 210, source: "gps", quality: "good", accuracy: 7 },
+    { id: "b", day: "2026-01-02", meters: 0, seconds: 900, source: "timed" },
+    { id: "c", day: "2026-01-03", meters: 0, seconds: 900, source: "manual" },
+    { id: "d", day: "2026-01-04", meters: 400, seconds: 100, source: "satellite" } ],
+    pending: { source: "gps", type: "easy", day: "2026-01-05", meters: 300, seconds: 90 } })`);
+  assert.strictEqual(n.runs.length, 3);
+  assert.strictEqual(n.runs[0].source, "gps");
+  assert.strictEqual(n.runs[1].meters, 0);
+  assert.strictEqual(n.runs[2].source, "manual");
+  assert.strictEqual(n.pending.meters, 300);
+  assert.strictEqual(run('normalizeSports({ pending: { source: "gps", meters: -5, seconds: 0 } }).pending'), null);
+});
+
+test("feedback separates GPS estimates from track measurements and uses effort", () => {
+  const gpsRun = { source: "gps", quality: "fair", accuracy: 9, meters: 200, seconds: 45, rpe: 9, type: "repeats" };
+  const lines = gps(`sportsRunFeedback(${JSON.stringify(gpsRun)}, { runType: "repeats", meters: 200, minutes: 0, effort: "RPE 6-7" }, null)`);
+  assert.ok(lines.some((l) => /GPS estimate/.test(l)));
+  assert.ok(lines.some((l) => /short distances/.test(l)));
+  assert.ok(lines.some((l) => /above the planned/.test(l)));
+  const trackLines = gps(`sportsRunFeedback({ source: "track", meters: 400, seconds: 100, rpe: 7, type: "repeats" }, { runType: "repeats", meters: 400, effort: "RPE 7" }, { meters: 400, seconds: 104, rpe: 7 })`);
+  assert.ok(trackLines.some((l) => /Measured on a track/.test(l)));
+  assert.ok(trackLines.some((l) => /faster/.test(l)));
+  const timed = gps(`sportsRunFeedback({ source: "timed", meters: 0, seconds: 840, rpe: 4, type: "easy" }, { runType: "easy", minutes: 20, effort: "RPE 3-4" }, null)`);
+  assert.ok(timed.some((l) => /14 of 20 planned minutes/.test(l)));
+});
+
+test("performance comparisons keep GPS and track runs apart", () => {
+  const mk2 = (id, day, source, seconds) => ({ id, day, type: "easy", source, meters: 2000, seconds, rpe: 4, splits: [] });
+  const sig = gps(`sportsPerformanceSignal(${JSON.stringify([mk2("1", "2026-01-01", "track", 900), mk2("2", "2026-01-03", "gps", 1200), mk2("3", "2026-01-05", "track", 890)])})`);
+  assert.notStrictEqual(sig.status, "slipping");
 });
 console.log(passed + " checks passed");

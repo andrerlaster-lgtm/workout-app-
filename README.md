@@ -60,6 +60,15 @@ The **Sports** tab builds a 12-week program (Foundation, Development, Event-spec
 
 This is a planning aid, not medical advice. Athletes should follow their coach and doctor.
 
+### Run tracking (GPS, treadmill, timed)
+
+Track a run from a workout's run step ("Track this run") or from "Track a run" in the week card. Pick a mode and target (100/200/400/600/800 m or custom):
+
+- **Outdoor GPS** shows estimated distance in meters, elapsed time, average and recent pace, progress to the target, and alerts (screen, vibration, sound where supported) at the marks (800 m: 200, 400, 600, finish). Start, pause, resume and stop work as expected. Location permission is requested only when you tap "Find GPS signal". GPS is an estimate: error is shown with every result and is a bigger share on short runs. Browsers may stop GPS when the screen locks, so keep the page open; the app asks for a screen wake lock where supported.
+- **Treadmill** never uses GPS: enter the belt distance in km or miles (800 m = 0.497 mi), time (timer or typed) and effort.
+- **Timed run** is a start/stop timer with optional distance and effort.
+- Only totals are saved (no routes or coordinates). Unfinished runs are kept and offered for saving after an interruption. Runs are labelled GPS estimate, treadmill, timed, track or entered by hand, and the coaching notes and performance trends compare like with like.
+
 ### Visual guides
 
 Every sports exercise now opens a guide with a two-pose picture (photos where available, otherwise stick-figure illustrations), the steps, "How this helps", what to watch for and what to avoid. Running steps have a Guide button for running form, acceleration starts and hill sprints.

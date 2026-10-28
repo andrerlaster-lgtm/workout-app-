@@ -228,12 +228,16 @@ function normalizeSports(raw) {
     }
     : null;
   const runs = Array.isArray(saved.runs)
-    ? saved.runs.filter((run) => run && typeof run.id === "string" && isDay(run.day) && Number(run.meters) > 0 && Number(run.seconds) > 0)
+    ? saved.runs.filter((run) => run && typeof run.id === "string" && isDay(run.day) && Number(run.seconds) > 0
+      && (Number(run.meters) > 0 || (run.source === "timed" && Number(run.meters || 0) >= 0)))
       .map((run) => ({
         id: run.id,
         day: run.day,
         type: sportsRunTypes[run.type] ? run.type : "other",
-        meters: Math.round(Number(run.meters)),
+        source: ["gps", "treadmill", "timed", "track", "manual"].includes(run.source) ? run.source : "manual",
+        quality: ["good", "fair", "poor"].includes(run.quality) ? run.quality : "",
+        accuracy: Number.isFinite(Number(run.accuracy)) && Number(run.accuracy) > 0 && Number(run.accuracy) < 1000 ? Math.round(Number(run.accuracy)) : null,
+        meters: Math.max(0, Math.round(Number(run.meters) || 0)),
         seconds: Math.round(Number(run.seconds)),
         rpe: Number.isInteger(run.rpe) && run.rpe >= 1 && run.rpe <= 10 ? run.rpe : null,
         splits: Array.isArray(run.splits) ? run.splits.map(Number).filter((n) => Number.isFinite(n) && n >= 5 && n <= 900).slice(0, 12) : [],
@@ -259,7 +263,18 @@ function normalizeSports(raw) {
         note: typeof entry.note === "string" ? entry.note.slice(0, 200) : ""
       }))
     : [];
-  return { profile, program, runs, checkins };
+  // An unfinished run saved while tracking, so a reload or crash never loses it. Totals only, no route.
+  const pd = saved.pending && typeof saved.pending === "object" ? saved.pending : null;
+  const pending = pd && ["gps", "treadmill", "timed"].includes(pd.source) && Number(pd.seconds) > 0 && Number(pd.meters) >= 0 && isDay(pd.day)
+    ? {
+      source: pd.source, type: sportsRunTypes[pd.type] ? pd.type : "other", day: pd.day,
+      meters: Math.round(Number(pd.meters)), seconds: Math.round(Number(pd.seconds)),
+      target: Number(pd.target) > 0 ? Math.round(Number(pd.target)) : 0,
+      quality: ["good", "fair", "poor"].includes(pd.quality) ? pd.quality : "",
+      accuracy: Number.isFinite(Number(pd.accuracy)) && Number(pd.accuracy) > 0 ? Math.round(Number(pd.accuracy)) : null
+    }
+    : null;
+  return { profile, program, runs, checkins, pending };
 }
 
 function sportsPace(meters, seconds) {

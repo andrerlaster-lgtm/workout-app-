@@ -49,11 +49,13 @@ function sportsSessionKey(program, slot) {
 }
 
 function sportsDistanceText(meters) {
+  if (!meters) return "no distance";
   if (meters < 1000) return meters + " m";
   return state.weightUnit === "kg" ? cleanNumber(meters / 1000) + " km" : cleanNumber(meters / 1609.344) + " mi";
 }
 
 function sportsPaceText(run) {
+  if (!run.meters) return "-";
   const pace = sportsPace(run.meters, run.seconds);
   return state.weightUnit === "kg" ? sportsClock(pace.perKm) + "/km" : sportsClock(pace.perMile) + "/mi";
 }
@@ -318,7 +320,9 @@ function renderSportsBlock(block, workout) {
   item.append(sp("p", "sp-why", "How it helps: " + block.why));
   if (block.kind === "run") {
     head.append(guideButton(sportsRunGuideName(block)));
-    item.append(sportsButton("Log this run", "ghost-button small", () => openRunDialog(block)));
+    const row = sp("div", "sp-actions");
+    row.append(sportsButton("Track this run", "finish-button", () => openSportsRunTracker(block)), sportsButton("Enter by hand", "ghost-button small", () => openRunDialog(block)));
+    item.append(row);
   }
   return item;
 }
@@ -384,6 +388,8 @@ function renderSportsProgram() {
     sportsCoachSlot = null;
   }
 
+  const pending = sportsPendingCard();
+  if (pending) sportsRoot.append(pending);
   const head = sp("div", "sp-card");
   head.append(sp("p", "sp-kicker", (sport.name + " · " + sport.events[profile.event].name).toUpperCase()));
   head.append(sp("h2", "", program.finished ? "Program complete" : "Week " + program.week + " of " + SPORTS_PROGRAM_WEEKS + " · " + phase.name));
@@ -428,6 +434,7 @@ function renderSportsProgram() {
     week.append(sp("h2", "", "This week"));
     if (adjust !== 0) week.append(sp("p", "special-note", adjust < 0 ? "This week is eased back about 20% based on recent check-ins." : "This week has a small optional step up (up to about 10%) because recent check-ins looked good. Do less if he feels tired."));
     if (sportsLightWeek(program.week)) week.append(sp("p", "special-note", "Light week: less volume so the body can absorb the training."));
+    week.append(sportsButton("Track a run (GPS, treadmill or timed)", "ghost-button rt-launch", () => openSportsRunTracker(null)));
     const holder = sp("div", "sp-workouts");
     workouts.forEach((workout) => holder.append(renderSportsWorkout(workout, program, todayLabel)));
     week.append(holder);
@@ -489,7 +496,7 @@ function renderSportsProgress(program) {
   else {
     const list = sp("ul", "sp-list");
     records.forEach(({ key, run }) => {
-      list.append(sp("li", "", sportsDistanceText(key) + ": " + sportsClock(run.seconds) + " · " + sportsPaceText(run) + " · " + shortDay(run.day)));
+      list.append(sp("li", "", sportsDistanceText(key) + ": " + sportsClock(run.seconds) + " · " + sportsPaceText(run) + " · " + shortDay(run.day) + (run.source === "gps" ? " (GPS estimate)" : run.source === "treadmill" ? " (treadmill)" : "")));
     });
     card.append(list);
   }
@@ -514,7 +521,7 @@ function renderSportsProgress(program) {
     const list = sp("ul", "sp-list");
     [...runs].reverse().slice(0, 6).forEach((run) => {
       const item = sp("li", "sp-run");
-      const text = sp("span", "", shortDay(run.day) + " · " + sportsRunTypes[run.type] + " · " + sportsDistanceText(run.meters) + " · " + sportsClock(run.seconds) + " · " + sportsPaceText(run) + (run.rpe ? " · effort " + run.rpe : "") + (run.splits && run.splits.length >= 2 ? " · reps " + run.splits.join(", ") + " s" : ""));
+      const text = sp("span", "", shortDay(run.day) + " · " + sportsRunTypes[run.type] + " · " + sportsDistanceText(run.meters) + " · " + sportsClock(run.seconds) + (run.meters ? " · " + sportsPaceText(run) : "") + " · " + (run.source === "gps" ? "GPS est." : run.source === "treadmill" ? "treadmill" : run.source === "timed" ? "timed" : run.source === "track" ? "track" : "entered") + (run.rpe ? " · effort " + run.rpe : "") + (run.splits && run.splits.length >= 2 ? " · reps " + run.splits.join(", ") + " s" : ""));
       if (sportsIsRunRecord(run, runs)) text.append(sp("em", "sp-pr", " PR"));
       const remove = sp("button", "icon-button danger");
       remove.type = "button";
@@ -607,6 +614,7 @@ function openRunDialog(block) {
   document.getElementById("run-sec").value = "";
   document.getElementById("run-note").value = "";
   document.getElementById("run-splits").value = "";
+  document.getElementById("run-source").value = state.sports.program && state.sports.program.profile.trackAccess ? "track" : "manual";
   document.getElementById("run-error").textContent = "";
   runDialog.showModal();
 }
@@ -629,7 +637,7 @@ document.getElementById("run-form").addEventListener("submit", (event) => {
   if (splits.some((n) => !Number.isFinite(n) || n < 5 || n > 900)) { error.textContent = "Rep times should be numbers of seconds, separated by commas."; return; }
   const program = sportsProgram();
   const run = {
-    id: makeId(), day, type: document.getElementById("run-type").value, meters, seconds,
+    id: makeId(), day, type: document.getElementById("run-type").value, source: document.getElementById("run-source").value === "track" ? "track" : "manual", quality: "", accuracy: null, meters, seconds,
     rpe: rpe >= 1 && rpe <= 10 ? rpe : null, splits: splits.slice(0, 12), note: document.getElementById("run-note").value.trim().slice(0, 200),
     programId: program ? program.id : ""
   };
@@ -867,7 +875,7 @@ function renderCoachStep(block, index) {
     details.append(sp("h4", "", "If he is struggling"), sp("p", "", rc.ifStruggling));
     const last = [...state.sports.runs].reverse().find((run) => run.type === block.runType || (block.runType === "repeats" && run.type === "repeats"));
     if (last) details.append(sp("p", "sp-fine", "Last similar run: " + sportsDistanceText(last.meters) + " in " + sportsClock(last.seconds) + " (" + sportsPaceText(last) + (last.rpe ? ", effort " + last.rpe + "/10" : "") + ")."));
-    details.append(guideButton(sportsRunGuideName(block)), sportsButton("Log this run", "ghost-button small", () => openRunDialog(block)));
+    details.append(guideButton(sportsRunGuideName(block)), sportsButton("Track this run", "finish-button", () => openSportsRunTracker(block)), sportsButton("Enter by hand", "ghost-button small", () => openRunDialog(block)));
   }
   return details;
 }
@@ -986,6 +994,11 @@ function sportsStruggleCard() {
 
 function renderSports() {
   sportsRoot.replaceChildren();
+  document.getElementById("sports-view").classList.toggle("is-tracking", Boolean(sportsRunSession && sportsRunSession.stage === "track"));
+  if (sportsRunSession) {
+    renderSportsRun();
+    return;
+  }
   if (sportsProgram() && !sportsEditing) {
     renderSportsProgram();
     return;
