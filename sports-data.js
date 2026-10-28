@@ -83,8 +83,10 @@ const sportsRunTypes = {
   hills: "Hill sprints",
   fartlek: "Fartlek",
   tempo: "Steady run",
+  accel: "Acceleration runs",
   repeats: "Interval repeats",
-  trial: "Time trial",
+  check: "Pace check (not all-out)",
+  trial: "Time trial (optional)",
   other: "Other run"
 };
 
@@ -94,7 +96,9 @@ const sportsWhy = {
   hills: "Short hill sprints build leg power and sprint mechanics with less impact than flat sprinting.",
   fartlek: "Playful surges in an easy run build speed endurance and teach the body to change pace.",
   tempo: "Steady, controlled running lifts the pace you can hold for a long time.",
+  accel: "Learning to build speed smoothly over 20-30 m is the start of every 800 m: a strong but controlled first 100 m.",
   repeats: "Repeating race-pace efforts with rest trains the body to run the pace the 800 m needs.",
+  check: "A controlled, not all-out effort shows fitness with little risk, so progress never depends on a hard test.",
   trial: "A single honest effort shows where fitness is today so training and pace targets can be set."
 };
 
@@ -176,6 +180,7 @@ function normalizeSports(raw) {
     current800Seconds: Number.isFinite(t800) && t800 >= 90 && t800 <= 600 ? Math.round(t800) : null,
     practiceDays: pickDays(p.practiceDays)
   };
+  const isDay = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
   const g = saved.program && typeof saved.program === "object" ? saved.program : null;
   const program = g && typeof g.id === "string" && g.id
     ? {
@@ -187,10 +192,13 @@ function normalizeSports(raw) {
       weekAdjust: g.weekAdjust && typeof g.weekAdjust === "object" && !Array.isArray(g.weekAdjust)
         ? Object.fromEntries(Object.entries(g.weekAdjust).filter(([week, value]) => /^\d+$/.test(week) && [-1, 0, 1].includes(value)))
         : {},
-      finished: g.finished === true
+      finished: g.finished === true,
+      log: Array.isArray(g.log)
+        ? g.log.filter((entry) => entry && Number.isInteger(entry.week) && ["progress", "continue", "repeat", "ease", "override"].includes(entry.outcome) && isDay(entry.day))
+          .map((entry) => ({ week: entry.week, outcome: entry.outcome, day: entry.day, followed: entry.followed !== false })).slice(-60)
+        : []
     }
     : null;
-  const isDay = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
   const runs = Array.isArray(saved.runs)
     ? saved.runs.filter((run) => run && typeof run.id === "string" && isDay(run.day) && Number(run.meters) > 0 && Number(run.seconds) > 0)
       .map((run) => ({
@@ -200,6 +208,7 @@ function normalizeSports(raw) {
         meters: Math.round(Number(run.meters)),
         seconds: Math.round(Number(run.seconds)),
         rpe: Number.isInteger(run.rpe) && run.rpe >= 1 && run.rpe <= 10 ? run.rpe : null,
+        splits: Array.isArray(run.splits) ? run.splits.map(Number).filter((n) => Number.isFinite(n) && n >= 5 && n <= 900).slice(0, 12) : [],
         note: typeof run.note === "string" ? run.note.slice(0, 200) : "",
         programId: typeof run.programId === "string" ? run.programId : ""
       }))
@@ -236,6 +245,11 @@ function sportsClock(totalSeconds) {
 }
 
 // "Time to beat" text for repeats, only when the athlete has an 800 m time.
+function sportsAverage(values) {
+  const list = values.filter((value) => Number.isFinite(value));
+  return list.length ? list.reduce((sum, value) => sum + value, 0) / list.length : null;
+}
+
 function sportsPaceHint(profile, meters) {
   if (!profile.current800Seconds) return "";
   return " (about " + sportsClock((profile.current800Seconds / 800) * meters) + " per " + meters + " m at current 800 m pace)";
@@ -266,12 +280,12 @@ function sportsTrackBuilder(profile, week, adjust) {
     if (timed) block.seconds = repCount; else block.reps = repCount;
     return Object.assign(block, extra || {});
   };
-  const run = (runType, name, detail, effort, extra) => Object.assign({ kind: "run", runType, category: "endurance", name, detail, effort, why: sportsWhy[runType] }, extra || {});
+  const run = (runType, name, detail, effort, extra) => Object.assign({ kind: "run", runType, coachKey: runType, category: "endurance", name, detail, effort, why: sportsWhy[runType] }, extra || {});
   const warm = [ex("Leg swings", 1, 10), ex("90/90 hip switch", 1, 8)];
   const cool = [ex("Hip flexor stretch", 1, 30), ex("Hamstring stretch", 1, 30), ex("Calf stretch", 1, 30)];
   const drills = [ex("A-skip", 2, 4), ex("B-skip", 2, 4), ex("High knees", 2, 4), ex("Butt kicks", 2, 4)];
   if (phase.id !== "foundation") drills.push(ex("Straight-leg skips", 2, 4), ex("Arm swing drill", 2, 10));
-  if (phase.id === "event" && !light) drills.push(ex("Calf pogo hops", 2, 10));
+  if (phase.id !== "foundation" && !light) drills.push(ex("Calf pogo hops", 2, 8));
   const strengthA = bodyweightOnly
     ? [ex("Bodyweight squat", sets, reps), ex("Step-up", sets, Math.max(6, reps - 2)), ex("Glute bridge", sets, reps), ex("Standing calf raise", sets, reps + 2)]
     : [ex("Goblet squat", sets, reps), ex("Step-up with knee raise", sets, Math.max(6, reps - 2)), ex("Glute bridge", sets, reps), ex("Standing calf raise", sets, reps + 2)];
@@ -308,26 +322,26 @@ function sportsTrackBuilder(profile, week, adjust) {
   let day3;
   if (phase.id === "foundation") {
     day1 = { key: "d1", title: "Endurance and leg strength", focus: "Easy running plus leg strength.", blocks: [...warm, run("easy", "Easy run", easyMinutes + " minutes " + outdoorsNote + ", conversation pace", "RPE 3-4", { minutes: easyMinutes }), ...strengthA, ...cool] };
-    day2 = { key: "d2", title: "Speed and running mechanics", focus: "Form drills and short, relaxed strides.", blocks: [...warm, ...drills, run("strides", "Strides", strides + " x 60-80 m fast but relaxed, walk back for rest", "RPE 6", { category: "speed", reps: strides }), ...core, ...cool] };
+    day2 = { key: "d2", title: "Speed and running mechanics", focus: "Form drills and short, relaxed strides.", blocks: [...warm, ...drills, ...(week >= 3 && !light ? [run("accel", "Acceleration runs", "3 x 20 m from a standing start, gradually speeding up to smooth and fast by 20 m, walk back for full recovery", "RPE 6-7", { category: "speed", reps: 3 })] : []), run("strides", "Strides", strides + " x 60-80 m fast but relaxed, walk back for rest", "RPE 6", { category: "speed", reps: strides }), ...core, ...cool] };
     day3 = {
       key: "d3", title: "Speed endurance and conditioning", focus: "Fun surges, then strength and core.",
       blocks: [...warm, run("fartlek", "Fartlek", (light ? 3 : 5) + " x 30 seconds quick (not all-out) inside a " + Math.max(12, easyMinutes) + "-minute easy run, 2 minutes easy between", "RPE 6-7 on surges", { category: "speedEndurance", minutes: Math.max(12, easyMinutes) }), ...strengthB, ...cool]
     };
-    if (week === 4) day3.blocks.splice(1, 0, run("trial", "Fitness check (optional)", track ? "After a good warm-up, run one 800 m at an honest hard effort. Skip it if you feel tired or sore." : "After a good warm-up, run one hard 800 m on a measured flat route (phone GPS is fine). Skip it if you feel tired or sore.", "RPE 8", { category: "speedEndurance", meters: 800 }));
+    if (week === 4) day3.blocks.splice(1, 0, run("check", "Optional pace check", (track ? "One 600 m on the track" : "One 600 m on a measured flat route (phone GPS is fine)") + " at a steady, strong effort, not all-out. Fully optional: skip it if he is tired, sore or not interested. Progress never depends on it.", "RPE 7", { category: "speedEndurance", meters: 600 }));
   } else if (phase.id === "development") {
     day1 = { key: "d1", title: "Endurance and leg strength", focus: "Longer easy run, with steady pickups, plus leg strength.", blocks: [...warm, run("easy", "Easy run with pickups", easyMinutes + " minutes " + outdoorsNote + ", with " + (light ? 2 : 4) + " x 1 minute at a steady pace in the middle, easy 2 minutes between", "RPE 3-4, pickups RPE 5-6", { minutes: easyMinutes }), ...strengthA, ...cool] };
     day2 = {
       key: "d2", title: "Speed and running mechanics", focus: "Drills, strides and short sprints.",
-      blocks: [...warm, ...drills, run("strides", "Strides", strides + " x 80 m smooth and fast, walk back for rest", "RPE 6-7", { category: "speed", reps: strides }),
-        ...(light ? [] : [run("hills", "Hill sprints", Math.min(rules.maxRepeats, 4 + (adjust > 0 ? 1 : 0)) + " x 8-10 seconds up a gentle hill, walk down for full recovery", "RPE 7-8", { category: "speed", reps: 4 })]),
+      blocks: [...warm, ...drills, run("accel", "Acceleration runs", (light ? 3 : 4) + " x 25-30 m from a standing start, building to fast and smooth, walk back for full recovery", "RPE 7", { category: "speed", reps: 4 }), run("strides", "Strides", strides + " x 80 m smooth and fast, walk back for rest", "RPE 6-7", { category: "speed", reps: strides }),
+        ...(light ? [] : [run("hills", "Hill sprints", Math.min(rules.maxRepeats, 4 + (adjust > 0 ? 1 : 0)) + " x 8-10 seconds up a gentle hill, walk down for full recovery (about 1 minute or more)", "RPE 7-8", { category: "speed", reps: 4 })]),
         ...core, ...cool]
     };
     const repeats = Math.min(rules.maxRepeats, (light ? 2 : 3) + (adjust > 0 ? 1 : 0));
     day3 = {
       key: "d3", title: "Speed endurance and conditioning", focus: "Controlled repeats, then leg strength.",
       blocks: [...warm, track
-        ? run("repeats", "200 m repeats", repeats + " x 200 m at about 800 m effort" + sportsPaceHint(profile, 200) + ", walk or jog 200 m between", "RPE " + (hardCap - 1) + "-" + hardCap, { category: "speedEndurance", meters: 200, reps: repeats })
-        : run("repeats", "Hill or field repeats", repeats + " x 40-45 seconds strong (not all-out) up a gentle hill or across a field, walk back for full recovery", "RPE " + (hardCap - 1) + "-" + hardCap, { category: "speedEndurance", reps: repeats }), ...strengthB, ...cool]
+        ? run("repeats", "200 m repeats", repeats + " x 200 m at about 800 m effort" + sportsPaceHint(profile, 200) + ", walk or jog 200 m between", "RPE " + (hardCap - 1) + "-" + hardCap, { category: "speedEndurance", meters: 200, reps: repeats, coachKey: "repeatsTrack" })
+        : run("repeats", "Hill or field repeats", repeats + " x 40-45 seconds strong (not all-out) up a gentle hill or across a field, walk back for full recovery", "RPE " + (hardCap - 1) + "-" + hardCap, { category: "speedEndurance", reps: repeats, coachKey: "repeatsField" }), ...strengthB, ...cool]
     };
   } else {
     day1 = { key: "d1", title: "Endurance and leg strength", focus: "Steady running that raises the pace you can hold, plus lighter leg strength.", blocks: [...warm, run("tempo", "Steady run", Math.max(10, Math.round(easyMinutes * 0.6)) + " minutes " + outdoorsNote + " at a comfortably hard, steady pace inside a " + easyMinutes + "-minute run", "RPE 6", { category: "endurance", minutes: easyMinutes }), ...strengthA.map((b) => ({ ...b, sets: Math.max(2, b.sets - 1) })), ...cool] };
@@ -336,8 +350,8 @@ function sportsTrackBuilder(profile, week, adjust) {
     day3 = {
       key: "d3", title: "Event-specific session", focus: "Practise the feel of 800 m pace with full recovery.",
       blocks: [...warm, track
-        ? run("repeats", "400 m repeats", repeats + " x 400 m at about 800 m pace" + sportsPaceHint(profile, 400) + ", walk or jog 3-4 minutes between", "RPE " + hardCap, { category: "speedEndurance", meters: 400, reps: repeats })
-        : run("repeats", "Race-feel repeats", repeats + " x 90 seconds strong and smooth (use phone GPS to note the distance), walk or jog 3-4 minutes between", "RPE " + hardCap, { category: "speedEndurance", reps: repeats }),
+        ? run("repeats", "400 m repeats", repeats + " x 400 m at about 800 m pace" + sportsPaceHint(profile, 400) + ", walk or jog 3-4 minutes between. Aim for each 400 to be within 2-3 seconds of the first", "RPE " + hardCap, { category: "speedEndurance", meters: 400, reps: repeats, coachKey: "repeatsTrack" })
+        : run("repeats", "Race-feel repeats", repeats + " x 90 seconds strong and smooth (use phone GPS to note the distance), walk or jog 3-4 minutes between. Aim for each rep to cover about the same distance", "RPE " + hardCap, { category: "speedEndurance", reps: repeats, coachKey: "repeatsField" }),
         ...strengthB.slice(0, 3).map((b) => ({ ...b, sets: Math.max(2, b.sets - 1) })), ...cool]
     };
     if (week === 12) day3.focus = "Taper week: sharpen up and stay fresh. Race or time trial if the coach agrees.";
@@ -352,34 +366,6 @@ function sportsBuildWeek(profile, week, adjust) {
   const builder = sportsBuilders[profile.sport + "/" + profile.event];
   if (!builder) return [];
   return builder(profile, week, adjust || 0).map((workout, index) => ({ ...workout, slot: index + 1 }));
-}
-
-// ---------- Adaptive progression ----------
-
-function sportsAverage(values) {
-  const list = values.filter((value) => Number.isFinite(value));
-  return list.length ? list.reduce((sum, value) => sum + value, 0) / list.length : null;
-}
-
-// Looks at the most recent check-ins and returns { adjust: -1|0|1, reasons: [] }.
-// Easing is quick (pain, high fatigue, poor recovery); stepping up is slow and needs three good check-ins.
-function sportsAdvice(checkins) {
-  const recent = checkins.slice(-3);
-  if (recent.length === 0) return { adjust: 0, reasons: ["Complete a workout and check in to start adjusting the plan."] };
-  if (recent.some((entry) => entry.pain)) {
-    return { adjust: -1, reasons: ["You reported pain. Take it easy, and tell your coach, a parent or a doctor if it does not go away."] };
-  }
-  const fatigue = sportsAverage(recent.map((entry) => entry.fatigue));
-  const recovery = sportsAverage(recent.map((entry) => entry.recovery));
-  const rpe = sportsAverage(recent.map((entry) => entry.rpe));
-  const reasons = [];
-  if (fatigue !== null && fatigue >= 4) reasons.push("Fatigue has been high.");
-  if (recovery !== null && recovery <= 2) reasons.push("Recovery has been low.");
-  if (rpe !== null && rpe >= 8.5) reasons.push("Workouts have felt very hard.");
-  if (reasons.length) return { adjust: -1, reasons: [...reasons, "Next week eases back about 20% with fewer hard efforts."] };
-  const good = recent.length >= 3 && fatigue !== null && fatigue <= 2.5 && recovery !== null && recovery >= 3.5 && (rpe === null || rpe <= 7);
-  if (good) return { adjust: 1, reasons: ["Recent workouts felt manageable and recovery is good. Next week adds about 10%, within age limits."] };
-  return { adjust: 0, reasons: ["Training load looks right. Next week stays on plan."] };
 }
 
 // ---------- Records ----------
@@ -410,7 +396,7 @@ function sportsIsRunRecord(run, runs) {
 if (typeof module !== "undefined" && module.exports) {
   Object.assign(module.exports, {
     sportsCatalog, sportsCategories, sportsPhases, sportsExerciseInfo, sportsDefaultProfile, sportsValidateProfile,
-    normalizeSports, sportsBuildWeek, sportsAdvice, sportsRunRecords, sportsIsRunRecord, sportsPace, sportsClock,
+    normalizeSports, sportsBuildWeek, sportsAverage, sportsRunRecords, sportsIsRunRecord, sportsPace, sportsClock,
     sportsAgeRules, sportsPhaseForWeek, SPORTS_PROGRAM_WEEKS, sportsTimedExercises, sportsRepsOnlyExercises
   });
 }

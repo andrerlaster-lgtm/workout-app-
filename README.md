@@ -59,3 +59,11 @@ The **Sports** tab builds a 12-week program (Foundation, Development, Event-spec
 - To add a sport or event, add it to `sportsCatalog`, add a builder to `sportsBuilders`, and add new exercises to `sportsExerciseInfo` in `sports-data.js`. Logic can be checked in Node: `node -e 'require("./sports-data.js")'`.
 
 This is a planning aid, not medical advice. Athletes should follow their coach and doctor.
+
+### Coaching assistant (parent mode)
+
+- **Coach me** on each workout opens a guided view: what is being developed and why it matters for the 800 m, a readiness check (energy, sleep, soreness, illness) that can switch to an easier version or rest, step-by-step cues (how to do it, what to watch, mistakes to avoid), intensity guidance (RPE and talk test), a rep checker ("too fast or too slow?" from rep times you enter), what to do if he is struggling, stop rules, and an after-session review.
+- **Weekly recommendation** (Progress, Continue, Repeat, Ease back) weighs consistency, fatigue, recovery, effort, pain and run-pace trends, and explains why. Good check-ins alone never trigger Progress; it needs a performance signal too. Phase changes require enough completed workouts. The 12 weeks follow his development: he can repeat or ease weeks, and the app recommends but never forces.
+- Time trials are optional; the optional "pace check" is a controlled effort, not all-out.
+- The app only uses what is entered (times, distances, ratings, sets). It does not analyse form or heart rate.
+- Sources and their limits are listed in the in-app Parent coaching guide. Run `node tests/sports-logic.js` to check the rules (no dependencies).

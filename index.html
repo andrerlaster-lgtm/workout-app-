@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/styles.css">
   <script src="/exercise-guides.js" defer></script>
   <script src="/sports-data.js" defer></script>
+  <script src="/sports-coaching.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/sports.js" defer></script>
 </head>
@@ -317,6 +318,8 @@
             <input id="run-min" class="set-input" type="number" inputmode="numeric" min="0" max="599" step="1" placeholder="min" aria-label="Minutes" required>
             <input id="run-sec" class="set-input" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="sec" aria-label="Seconds" required>
           </div>
+          <label for="run-splits">Rep times in seconds (optional)</label>
+          <input id="run-splits" class="set-input" placeholder="e.g. 48, 49, 50" autocomplete="off">
           <label for="run-rpe">Effort (1 easy to 10 all-out)</label>
           <select id="run-rpe" class="unit-select"><option value="">Skip</option></select>
           <label for="run-note">Note</label>
